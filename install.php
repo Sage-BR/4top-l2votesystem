@@ -22,7 +22,7 @@ if ($step === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $db_name = trim($_POST['db_name'] ?? '');
     $project = trim($_POST['project'] ?? 'acis');
 
-    $valid_projects = array('acis', 'l2jorion', 'l2jmobius');
+    $valid_projects = array('acis', 'l2jorion', 'l2jmobius', 'l2jlisvus');
     if (!in_array($project, $valid_projects)) $project = 'acis';
 
     try {
@@ -138,9 +138,10 @@ if (file_exists(__DIR__ . '/config.php')) {
 }
 
 $project_info = array(
-    'acis'      => array('name' => 'aCis',      'icon' => '⚔️',  'desc' => 'aCis 362+  •  reward direto no items',     'pass' => 'SHA1 hex'),
-    'l2jorion' => array('name' => 'L2JOrion', 'icon' => '🛡️', 'desc' => 'L2JOrion  •  reward direto no items',  'pass' => 'SHA1 Base64'),
+    'acis'      => array('name' => 'aCis',      'icon' => '⚔️',  'desc' => 'aCis 362~408 (SHA1 Base64) e 409+ (BCrypt) — detectado automaticamente', 'pass' => 'SHA1 / BCrypt'),
+    'l2jorion'  => array('name' => 'L2JOrion',  'icon' => '🛡️', 'desc' => 'L2JOrion  •  reward direto no items',                  'pass' => 'SHA1 Base64'),
     'l2jmobius' => array('name' => 'L2JMobius', 'icon' => '🔮', 'desc' => 'L2JMobius (all Chronicle)  •  reward direto no items', 'pass' => 'SHA1 Base64'),
+    'l2jlisvus' => array('name' => 'L2JLisvus', 'icon' => '⚜️', 'desc' => 'L2JLisvus C4  •  reward direto no items',             'pass' => 'SHA1 Base64'),
 );
 
 // Tabelas por projeto (para exibir no Step 3)

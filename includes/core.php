@@ -1,7 +1,7 @@
 <?php
 /**
  * VoteSystem — Core
- * Compatível: aCis | L2JOrion | L2JMobius
+ * Compatível: aCis | L2JOrion | L2JMobius | L2JLisvus
  */
 
 if (!defined('INSTALLED')) {
@@ -11,24 +11,26 @@ if (!defined('INSTALLED')) {
 
 // ── Hash de senha ─────────────────────────────────────────────────────────────
 //
-// aCis / L2JOrion / L2JMobius → base64_encode( sha1($pass, true) )
+// aCis ≤ 408 / L2JOrion / L2JMobius → base64_encode( sha1($pass, true) )
+// aCis 409+                          → BCrypt (password_verify nativo do PHP)
 //
-// Todos usam o mesmo algoritmo: SHA1 raw bytes → Base64
-// Java equivalente: Base64.encode( MessageDigest("SHA").digest(password.getBytes(UTF_8)) )
+// O sistema detecta automaticamente pelo comprimento do hash armazenado:
+//   BCrypt  → sempre começa com '$2' e tem 60 chars
+//   SHA1B64 → 28 chars
 //
-function gameHashPassword($plainPassword) {
-    return base64_encode(sha1($plainPassword, true));
-}
-
 function gameVerifyPassword($plainPassword, $storedHash) {
-    $computed = gameHashPassword($plainPassword);
-    return hash_equals((string)$storedHash, $computed);
+    // BCrypt — aCis 409+
+    if (strlen($storedHash) === 60 && strncmp($storedHash, '$2', 2) === 0) {
+        return password_verify($plainPassword, $storedHash);
+    }
+    // SHA1 Base64 — aCis ≤408, L2JOrion, L2JMobius
+    return hash_equals((string)$storedHash, base64_encode(sha1($plainPassword, true)));
 }
 
 // ── Conta do jogo ─────────────────────────────────────────────────────────────
 //
-// aCis / L2JOrion  → access_level  (snake_case)
-// L2JMobius        → accessLevel   (camelCase)
+// aCis / L2JOrion / L2JLisvus → access_level  (snake_case)
+// L2JMobius                   → accessLevel   (camelCase)
 //
 function gameGetAccount($login) {
     $col  = (GAME_PROJECT === 'l2jmobius') ? 'accessLevel' : 'access_level';
@@ -55,8 +57,8 @@ function gameLogin($login, $password) {
 
 // ── Personagem ────────────────────────────────────────────────────────────────
 //
-// aCis / L2JOrion → obj_Id,  account_name, deletetime, lastAccess
-// L2JMobius       → charId,  account_name, deletetime, lastAccess
+// aCis / L2JOrion / L2JLisvus → obj_Id,  account_name, deletetime, lastAccess
+// L2JMobius                   → charId,  account_name, deletetime, lastAccess
 //
 function _charIdCol() {
     return (GAME_PROJECT === 'l2jmobius') ? 'charId' : 'obj_Id';
@@ -89,39 +91,54 @@ function gameCharBelongsTo($login, $objId) {
 
 // ── Entrega de reward ─────────────────────────────────────────────────────────
 //
-// Todos os projetos entregam direto na tabela items do jogo.
+// Todos os projetos entregam direto na tabela items.
+//
+// Schema por projeto:
+//   aCis / L2JOrion  → owner_id, object_id, item_id, count, enchant_level,
+//                       loc, loc_data, custom_type1, custom_type2, mana_left
+//   L2JMobius        → idem + time
+//   L2JLisvus        → owner_id, object_id, item_id, count, enchant_level,
+//                       loc, loc_data, custom_type1, custom_type2
+//                       (sem mana_left, sem time)
 //
 function gameDeliverRewards($login, array $rewards, $db, $objId = null) {
     if (empty($rewards)) return true;
     return _deliverRewardsGame($login, $rewards, $db, $objId);
 }
 
-/**
- * Todos os projetos — INSERT direto em items.
- *
- * aCis / L2JOrion → sem coluna 'time'
- * L2JMobius       → com coluna 'time'
- */
 function _deliverRewardsGame($login, array $rewards, $db, $objId = null) {
     $ownerId = _resolveOwnerId($login, $objId, $db);
     if ($ownerId === null) return false;
 
     $maxId = _nextObjectId($db);
 
-    if (GAME_PROJECT === 'l2jmobius') {
-        $ins = $db->prepare(
-            "INSERT INTO items
-                (owner_id, object_id, item_id, count, enchant_level,
-                 loc, loc_data, custom_type1, custom_type2, mana_left, time)
-             VALUES (?, ?, ?, ?, 0, 'INVENTORY', 0, 0, 0, -1, 0)"
-        );
-    } else {
-        $ins = $db->prepare(
-            "INSERT INTO items
-                (owner_id, object_id, item_id, count, enchant_level,
-                 loc, loc_data, custom_type1, custom_type2, mana_left)
-             VALUES (?, ?, ?, ?, 0, 'INVENTORY', 0, 0, 0, -1)"
-        );
+    switch (GAME_PROJECT) {
+        case 'l2jmobius':
+            $ins = $db->prepare(
+                "INSERT INTO items
+                    (owner_id, object_id, item_id, count, enchant_level,
+                     loc, loc_data, custom_type1, custom_type2, mana_left, time)
+                 VALUES (?, ?, ?, ?, 0, 'INVENTORY', 0, 0, 0, -1, 0)"
+            );
+            break;
+
+        case 'l2jlisvus':
+            $ins = $db->prepare(
+                "INSERT INTO items
+                    (owner_id, object_id, item_id, count, enchant_level,
+                     loc, loc_data, custom_type1, custom_type2)
+                 VALUES (?, ?, ?, ?, 0, 'INVENTORY', 0, 0, 0)"
+            );
+            break;
+
+        default: // acis, l2jorion
+            $ins = $db->prepare(
+                "INSERT INTO items
+                    (owner_id, object_id, item_id, count, enchant_level,
+                     loc, loc_data, custom_type1, custom_type2, mana_left)
+                 VALUES (?, ?, ?, ?, 0, 'INVENTORY', 0, 0, 0, -1)"
+            );
+            break;
     }
 
     foreach ($rewards as $r) {
