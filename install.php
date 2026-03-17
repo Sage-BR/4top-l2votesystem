@@ -22,7 +22,7 @@ if ($step === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $db_name = trim($_POST['db_name'] ?? '');
     $project = trim($_POST['project'] ?? 'acis');
 
-    $valid_projects = array('acis', 'l2jorion', 'l2jmobius', 'l2jsunrise', 'l2jlisvus');
+    $valid_projects = array('acis', 'l2jorion', 'l2jmobius', 'l2jsunrise', 'l2mythras', 'l2jlisvus');
     if (!in_array($project, $valid_projects)) $project = 'acis';
 
     try {
@@ -142,6 +142,7 @@ $project_info = array(
     'l2jorion'   => array('name' => 'L2JOrion',    'icon' => '🛡️', 'desc' => 'L2JOrion  •  reward direto no items',                                     'pass' => 'SHA1 Base64'),
     'l2jmobius'  => array('name' => 'L2JMobius',   'icon' => '🔮', 'desc' => 'L2JMobius (all Chronicle)  •  reward direto no items',                    'pass' => 'SHA1 Base64'),
     'l2jsunrise' => array('name' => 'L2JSunrise',  'icon' => '🌅', 'desc' => 'L2JSunrise  •  reward direto no items',                                   'pass' => 'SHA1 Base64'),
+    'l2mythras'  => array('name' => 'L2Mythras',   'icon' => '⚡', 'desc' => 'L2Mythras  •  reward direto no items',                                    'pass' => 'SHA1 Base64'),
     'l2jlisvus'  => array('name' => 'L2JLisvus',   'icon' => '⚜️', 'desc' => 'L2JLisvus C4  •  reward direto no items',                                'pass' => 'SHA1 Base64'),
 );
 

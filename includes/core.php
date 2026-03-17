@@ -133,6 +133,21 @@ function _deliverRewardsGame($login, array $rewards, $db, $objId = null) {
             );
             break;
 
+        case 'l2mythras':
+            // items do L2Mythras não tem mana_left nem time
+            // tem life_time, augmentation_id, attribute_* e outros campos NOT NULL
+            $ins = $db->prepare(
+                "INSERT INTO items
+                    (object_id, owner_id, item_id, count, enchant_level,
+                     loc, loc_data, life_time, augmentation_id,
+                     attribute_fire, attribute_water, attribute_wind,
+                     attribute_earth, attribute_holy, attribute_unholy,
+                     custom_type1, custom_type2, custom_flags,
+                     agathion_energy, visual_item_id)
+                 VALUES (?, ?, ?, ?, 0, 'INVENTORY', 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)"
+            );
+            break;
+
         default: // acis, l2jorion
             $ins = $db->prepare(
                 "INSERT INTO items
@@ -144,7 +159,12 @@ function _deliverRewardsGame($login, array $rewards, $db, $objId = null) {
     }
 
     foreach ($rewards as $r) {
-        $ins->execute(array($ownerId, ++$maxId, (int)$r['item_id'], (int)$r['quantity']));
+        // L2Mythras tem object_id antes de owner_id no INSERT
+        if (GAME_PROJECT === 'l2mythras') {
+            $ins->execute(array(++$maxId, $ownerId, (int)$r['item_id'], (int)$r['quantity']));
+        } else {
+            $ins->execute(array($ownerId, ++$maxId, (int)$r['item_id'], (int)$r['quantity']));
+        }
     }
     return true;
 }

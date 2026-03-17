@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$projects     = array('acis' => 'aCis', 'l2jorion' => 'L2JOrion', 'l2jmobius' => 'L2JMobius', 'l2jsunrise' => 'L2JSunrise', 'l2jlisvus' => 'L2JLisvus');
+$projects     = array('acis' => 'aCis', 'l2jorion' => 'L2JOrion', 'l2jmobius' => 'L2JMobius', 'l2jsunrise' => 'L2JSunrise', 'l2mythras' => 'L2Mythras', 'l2jlisvus' => 'L2JLisvus');
 $project_name = isset($projects[GAME_PROJECT]) ? $projects[GAME_PROJECT] : GAME_PROJECT;
 
 // Layout config
