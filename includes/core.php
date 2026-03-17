@@ -30,10 +30,10 @@ function gameVerifyPassword($plainPassword, $storedHash) {
 // ── Conta do jogo ─────────────────────────────────────────────────────────────
 //
 // aCis / L2JOrion / L2JLisvus → access_level  (snake_case)
-// L2JMobius                   → accessLevel   (camelCase)
+// L2JMobius / L2JSunrise      → accessLevel   (camelCase)
 //
 function gameGetAccount($login) {
-    $col  = (GAME_PROJECT === 'l2jmobius') ? 'accessLevel' : 'access_level';
+    $col  = (GAME_PROJECT === 'l2jmobius' || GAME_PROJECT === 'l2jsunrise') ? 'accessLevel' : 'access_level';
     $db   = getDB();
     $stmt = $db->prepare(
         "SELECT login, password, `{$col}` AS access_level FROM accounts WHERE login = ? LIMIT 1"
@@ -58,10 +58,10 @@ function gameLogin($login, $password) {
 // ── Personagem ────────────────────────────────────────────────────────────────
 //
 // aCis / L2JOrion / L2JLisvus → obj_Id,  account_name, deletetime, lastAccess
-// L2JMobius                   → charId,  account_name, deletetime, lastAccess
+// L2JMobius / L2JSunrise      → charId,  account_name, deletetime, lastAccess
 //
 function _charIdCol() {
-    return (GAME_PROJECT === 'l2jmobius') ? 'charId' : 'obj_Id';
+    return (GAME_PROJECT === 'l2jmobius' || GAME_PROJECT === 'l2jsunrise') ? 'charId' : 'obj_Id';
 }
 
 function gameGetChars($login) {
@@ -96,7 +96,8 @@ function gameCharBelongsTo($login, $objId) {
 // Schema por projeto:
 //   aCis / L2JOrion  → owner_id, object_id, item_id, count, enchant_level,
 //                       loc, loc_data, custom_type1, custom_type2, mana_left
-//   L2JMobius        → idem + time
+//   L2JMobius /
+//   L2JSunrise       → idem + time
 //   L2JLisvus        → owner_id, object_id, item_id, count, enchant_level,
 //                       loc, loc_data, custom_type1, custom_type2
 //                       (sem mana_left, sem time)
@@ -114,6 +115,7 @@ function _deliverRewardsGame($login, array $rewards, $db, $objId = null) {
 
     switch (GAME_PROJECT) {
         case 'l2jmobius':
+        case 'l2jsunrise':
             $ins = $db->prepare(
                 "INSERT INTO items
                     (owner_id, object_id, item_id, count, enchant_level,
