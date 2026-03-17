@@ -112,18 +112,6 @@ O VoteSystem é um painel web que permite aos jogadores do seu servidor votarem 
 
 ---
 
-## 🎨 Personalização
-
-Edite apenas o arquivo `includes/layout.php` para customizar:
-
-```php
-define('LAYOUT_SITE_NAME',   'Nome do Servidor');
-define('LAYOUT_SITE_SUFFIX', 'Lineage 2 Classic');
-define('LAYOUT_FAVICON',     'assets/favicon.png');
-define('LAYOUT_FOOTER',      'Meu Servidor © 2025');
-```
-
----
 
 ## 📋 Notas
 
