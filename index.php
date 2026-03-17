@@ -51,7 +51,7 @@ $project_name = isset($projects[GAME_PROJECT]) ? $projects[GAME_PROJECT] : GAME_
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VoteSystem 4Top — Login</title>
+  <title>VoteSystem 4Top — by 4TeamBR | Login</title>
   <link rel="stylesheet" href="assets/css/main.css">
   <style>
     .rune-bg { position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden; }
