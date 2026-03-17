@@ -83,7 +83,7 @@ function handleArenaTop100() {
 
     // Busca o top ArenaTop100 ativo
     $stmt = $db->prepare(
-        "SELECT * FROM icpvote_tops WHERE top_btn = 'arenatop100.php' AND enabled = 1 LIMIT 1"
+        "SELECT * FROM 4top_tops WHERE top_btn = 'arenatop100.php' AND enabled = 1 LIMIT 1"
     );
     $stmt->execute();
     $top = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -158,7 +158,7 @@ function handleGeneric($network) {
     $db = getDB();
 
     $stmt = $db->prepare(
-        "SELECT * FROM icpvote_tops
+        "SELECT * FROM 4top_tops
          WHERE top_btn LIKE ? AND (token = ? OR token IS NULL OR token = '') AND enabled = 1
          LIMIT 1"
     );
@@ -167,7 +167,7 @@ function handleGeneric($network) {
 
     if (!$top) {
         $stmt = $db->prepare(
-            "SELECT * FROM icpvote_tops WHERE top_btn LIKE ? AND enabled = 1 LIMIT 1"
+            "SELECT * FROM 4top_tops WHERE top_btn LIKE ? AND enabled = 1 LIMIT 1"
         );
         $stmt->execute(array('%' . $network . '%'));
         $top = $stmt->fetch(PDO::FETCH_ASSOC);

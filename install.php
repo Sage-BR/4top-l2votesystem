@@ -22,7 +22,7 @@ if ($step === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $db_name = trim($_POST['db_name'] ?? '');
     $project = trim($_POST['project'] ?? 'acis');
 
-    $valid_projects = array('acis', 'l2jserver', 'l2jmobius');
+    $valid_projects = array('acis', 'l2jorion', 'l2jmobius');
     if (!in_array($project, $valid_projects)) $project = 'acis';
 
     try {
@@ -73,7 +73,7 @@ if ($step === 3 && isset($_GET['create'])) {
 
         // Tabelas base — todos os projetos
         $sqls = array(
-            "CREATE TABLE IF NOT EXISTS `icpvote_tops` (
+            "CREATE TABLE IF NOT EXISTS `4top_tops` (
                 `id`         INT(11)      NOT NULL AUTO_INCREMENT,
                 `name`       VARCHAR(100) NOT NULL,
                 `top_id`     VARCHAR(200) NOT NULL,
@@ -86,7 +86,7 @@ if ($step === 3 && isset($_GET['create'])) {
                 PRIMARY KEY (`id`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8",
 
-            "CREATE TABLE IF NOT EXISTS `icpvote_rewards` (
+            "CREATE TABLE IF NOT EXISTS `4top_rewards` (
                 `id`          INT(11) NOT NULL AUTO_INCREMENT,
                 `item_id`     INT(11) NOT NULL,
                 `quantity`    INT(11) NOT NULL DEFAULT 1,
@@ -94,7 +94,7 @@ if ($step === 3 && isset($_GET['create'])) {
                 PRIMARY KEY (`id`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8",
 
-            "CREATE TABLE IF NOT EXISTS `icpvote_log` (
+            "CREATE TABLE IF NOT EXISTS `4top_log` (
                 `id`          INT(11)     NOT NULL AUTO_INCREMENT,
                 `login`       VARCHAR(45) NOT NULL,
                 `ip`          VARCHAR(45) NOT NULL,
@@ -107,7 +107,7 @@ if ($step === 3 && isset($_GET['create'])) {
                 INDEX `idx_ip` (`ip`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8",
 
-            "CREATE TABLE IF NOT EXISTS `icpvote_reward_claims` (
+            "CREATE TABLE IF NOT EXISTS `4top_reward_claims` (
                 `id`         INT(11)     NOT NULL AUTO_INCREMENT,
                 `login`      VARCHAR(45) NOT NULL,
                 `claimed_at` DATETIME    NOT NULL,
@@ -115,22 +115,6 @@ if ($step === 3 && isset($_GET['create'])) {
                 INDEX `idx_login` (`login`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8",
         );
-
-        // Apenas L2JServer e L2JMobius precisam da fila de pendentes
-        if (GAME_PROJECT !== 'acis') {
-            $sqls[] = "CREATE TABLE IF NOT EXISTS `icpvote_pending_rewards` (
-                `id`           INT(11)     NOT NULL AUTO_INCREMENT,
-                `login`        VARCHAR(45) NOT NULL,
-                `item_id`      INT(11)     NOT NULL,
-                `quantity`     INT(11)     NOT NULL DEFAULT 1,
-                `created_at`   DATETIME    NOT NULL,
-                `delivered`    TINYINT(1)  DEFAULT 0,
-                `delivered_at` DATETIME    DEFAULT NULL,
-                PRIMARY KEY (`id`),
-                INDEX `idx_login` (`login`),
-                INDEX `idx_delivered` (`delivered`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8";
-        }
 
         foreach ($sqls as $sql) {
             $pdo->exec($sql);
@@ -155,19 +139,16 @@ if (file_exists(__DIR__ . '/config.php')) {
 
 $project_info = array(
     'acis'      => array('name' => 'aCis',      'icon' => '⚔️',  'desc' => 'aCis 362+  •  reward direto no items',     'pass' => 'SHA1 hex'),
-    'l2jserver' => array('name' => 'L2JServer', 'icon' => '🛡️', 'desc' => 'L2J4Team / L2JLisvus  •  fila de reward',  'pass' => 'SHA1 Base64'),
-    'l2jmobius' => array('name' => 'L2JMobius', 'icon' => '🔮', 'desc' => 'L2JMobius (all Chronicle)  •  fila reward', 'pass' => 'SHA256 hex'),
+    'l2jorion' => array('name' => 'L2JOrion', 'icon' => '🛡️', 'desc' => 'L2JOrion  •  reward direto no items',  'pass' => 'SHA1 Base64'),
+    'l2jmobius' => array('name' => 'L2JMobius', 'icon' => '🔮', 'desc' => 'L2JMobius (all Chronicle)  •  reward direto no items', 'pass' => 'SHA1 Base64'),
 );
 
 // Tabelas por projeto (para exibir no Step 3)
 $tables_base = array(
-    'icpvote_tops'          => 'Sites de TOP configurados',
-    'icpvote_rewards'       => 'Itens de recompensa por voto',
-    'icpvote_log'           => 'Histórico de votos',
-    'icpvote_reward_claims' => 'Registro de recompensas coletadas',
-);
-$tables_queue = array(
-    'icpvote_pending_rewards' => 'Fila de rewards (L2JServer / L2JMobius)',
+    '4top_tops'          => 'Sites de TOP configurados',
+    '4top_rewards'       => 'Itens de recompensa por voto',
+    '4top_log'           => 'Histórico de votos',
+    '4top_reward_claims' => 'Registro de recompensas coletadas',
 );
 ?>
 <!DOCTYPE html>
@@ -313,9 +294,6 @@ $tables_queue = array(
 
       <?php
       $tables_show = $tables_base;
-      if ($installed_project !== 'acis') {
-          $tables_show = array_merge($tables_show, $tables_queue);
-      }
       ?>
       <ul style="list-style:none;display:flex;flex-direction:column;gap:.4rem;margin-bottom:1.5rem;">
         <?php foreach ($tables_show as $t => $d): ?>
@@ -327,17 +305,9 @@ $tables_queue = array(
         <?php endforeach; ?>
       </ul>
 
-      <?php if ($installed_project === 'acis'): ?>
       <div class="alert alert-info" style="font-size:.8rem;margin-bottom:1rem;">
-        ⚔ <strong>aCis:</strong> rewards são inseridos diretamente na tabela
-        <code>items</code> do jogo — sem mod Java ou cron necessário.
+        ✅ Rewards são inseridos diretamente na tabela <code>items</code> do jogo — sem mod Java ou cron necessário.
       </div>
-      <?php else: ?>
-      <div class="alert alert-info" style="font-size:.8rem;margin-bottom:1rem;">
-        🛡 <strong><?= htmlspecialchars($project_info[$installed_project]['name'] ?? $installed_project) ?>:</strong>
-        rewards ficam na fila <code>icpvote_pending_rewards</code> para entrega via cron ou mod Java.
-      </div>
-      <?php endif; ?>
 
       <a href="install.php?step=3&create=1&project=<?= urlencode($installed_project) ?>"
          class="btn btn-primary btn-full">
@@ -358,19 +328,11 @@ $tables_queue = array(
           para configurar tops e rewards.
         </p>
 
-        <?php if ($installed_project === 'acis'): ?>
         <div class="alert alert-info" style="text-align:left;margin-bottom:1.25rem;font-size:.8rem;line-height:1.6;">
-          ⚔ <strong>aCis — Entrega de Reward:</strong><br>
-          Os itens são inseridos diretamente em <code>items</code> no personagem mais recente da conta.<br>
+          ✅ <strong>Entrega de Reward:</strong><br>
+          Os itens são inseridos diretamente em <code>items</code> no personagem escolhido.<br>
           <span style="color:var(--text-dim)">Nenhum mod Java ou cron necessário.</span>
         </div>
-        <?php else: ?>
-        <div class="alert alert-info" style="text-align:left;margin-bottom:1.25rem;font-size:.8rem;line-height:1.6;">
-          🛡 <strong>Entrega de Reward (<?= htmlspecialchars($project_info[$installed_project]['name'] ?? $installed_project) ?>):</strong><br>
-          Os rewards ficam na fila <code>icpvote_pending_rewards</code>.
-          Configure um cron job ou mod Java para processar a entrega.
-        </div>
-        <?php endif; ?>
 
         <div class="alert alert-warning" style="text-align:left;margin-bottom:1.5rem;font-size:.8rem;">
           🔒 <strong>Segurança:</strong> Exclua ou renomeie <code>install.php</code> após configurar o sistema!

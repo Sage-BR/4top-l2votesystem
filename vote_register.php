@@ -39,7 +39,7 @@ if ($topId <= 0) {
 
 // Verifica se o top existe e está ativo
 $db   = getDB();
-$stmt = $db->prepare("SELECT id FROM icpvote_tops WHERE id = ? AND enabled = 1 LIMIT 1");
+$stmt = $db->prepare("SELECT id FROM 4top_tops WHERE id = ? AND enabled = 1 LIMIT 1");
 $stmt->execute(array($topId));
 if (!$stmt->fetch()) {
     echo json_encode(array('ok' => false, 'msg' => 'top_not_found'));

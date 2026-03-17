@@ -225,7 +225,7 @@ function getAvailableTops() {
 function has4Top() {
     $db   = getDB();
     $stmt = $db->prepare(
-        "SELECT id FROM icpvote_tops WHERE top_btn = '4top.php' AND enabled = 1 LIMIT 1"
+        "SELECT id FROM 4top_tops WHERE top_btn = '4top.php' AND enabled = 1 LIMIT 1"
     );
     $stmt->execute();
     return (bool)$stmt->fetch();
@@ -235,7 +235,7 @@ function has4Top() {
 function getTops() {
     $db   = getDB();
     $stmt = $db->query(
-        "SELECT * FROM icpvote_tops WHERE enabled = 1 ORDER BY sort_order ASC, id ASC"
+        "SELECT * FROM 4top_tops WHERE enabled = 1 ORDER BY sort_order ASC, id ASC"
     );
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -244,7 +244,7 @@ function getTops() {
 function getAllTops() {
     $db   = getDB();
     $stmt = $db->query(
-        "SELECT * FROM icpvote_tops ORDER BY sort_order ASC, id ASC"
+        "SELECT * FROM 4top_tops ORDER BY sort_order ASC, id ASC"
     );
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -253,7 +253,7 @@ function getAllTops() {
 
 function getRewards() {
     $db   = getDB();
-    $stmt = $db->query("SELECT * FROM icpvote_rewards ORDER BY id ASC");
+    $stmt = $db->query("SELECT * FROM 4top_rewards ORDER BY id ASC");
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
@@ -265,7 +265,7 @@ function getRewards() {
 function hasVotedRecently($login, $top_id) {
     $db   = getDB();
     $stmt = $db->prepare(
-        "SELECT id FROM icpvote_log
+        "SELECT id FROM 4top_log
          WHERE login = ? AND top_id = ?
            AND voted_at > DATE_SUB(NOW(), INTERVAL 12 HOUR)
          LIMIT 1"
@@ -281,7 +281,7 @@ function getLastVote($login, $top_id) {
     $db   = getDB();
     $stmt = $db->prepare(
         "SELECT *, TIMESTAMPDIFF(SECOND, voted_at, NOW()) AS seconds_ago
-         FROM icpvote_log
+         FROM 4top_log
          WHERE login = ? AND top_id = ?
          ORDER BY voted_at DESC LIMIT 1"
     );
@@ -294,7 +294,7 @@ function getLastVote($login, $top_id) {
  */
 function countVotes($login) {
     $db   = getDB();
-    $stmt = $db->prepare("SELECT COUNT(*) FROM icpvote_log WHERE login = ?");
+    $stmt = $db->prepare("SELECT COUNT(*) FROM 4top_log WHERE login = ?");
     $stmt->execute(array($login));
     return (int)$stmt->fetchColumn();
 }
@@ -311,7 +311,7 @@ function registerVote($login, $top_id, $ip) {
     $db = getDB();
     try {
         $stmt = $db->prepare(
-            "INSERT INTO icpvote_log (login, ip, top_id, voted_at, rewarded)
+            "INSERT INTO 4top_log (login, ip, top_id, voted_at, rewarded)
              VALUES (?, ?, ?, NOW(), 0)"
         );
         $stmt->execute(array($login, $ip, $top_id));
@@ -340,7 +340,7 @@ function checkVotes($login, $ip) {
 
     // Cooldown de claim
     $chk = $db->prepare(
-        "SELECT claimed_at FROM icpvote_reward_claims
+        "SELECT claimed_at FROM 4top_reward_claims
          WHERE login = ? AND claimed_at > DATE_SUB(NOW(), INTERVAL 12 HOUR)
          ORDER BY claimed_at DESC LIMIT 1"
     );
@@ -424,7 +424,7 @@ function claimReward($login, $objId) {
 
     // Double-check cooldown
     $chk = $db->prepare(
-        "SELECT claimed_at FROM icpvote_reward_claims
+        "SELECT claimed_at FROM 4top_reward_claims
          WHERE login = ? AND claimed_at > DATE_SUB(NOW(), INTERVAL 12 HOUR)
          ORDER BY claimed_at DESC LIMIT 1"
     );
@@ -438,7 +438,7 @@ function claimReward($login, $objId) {
 
         // Registra votos confirmados
         $stmtLog = $db->prepare(
-            "INSERT INTO icpvote_log (login, ip, top_id, voted_at, rewarded)
+            "INSERT INTO 4top_log (login, ip, top_id, voted_at, rewarded)
              VALUES (?, ?, ?, NOW(), 0)"
         );
         foreach ($confirmed as $top_id => $voteTime) {
@@ -449,7 +449,7 @@ function claimReward($login, $objId) {
 
         // Registra o claim
         $db->prepare(
-            "INSERT INTO icpvote_reward_claims (login, claimed_at) VALUES (?, NOW())"
+            "INSERT INTO 4top_reward_claims (login, claimed_at) VALUES (?, NOW())"
         )->execute(array($login));
 
         // Entrega rewards no personagem escolhido
@@ -460,7 +460,7 @@ function claimReward($login, $objId) {
 
         // Marca logs como recompensados
         $db->prepare(
-            "UPDATE icpvote_log SET rewarded = 1, rewarded_at = NOW()
+            "UPDATE 4top_log SET rewarded = 1, rewarded_at = NOW()
              WHERE login = ? AND rewarded = 0
                AND voted_at > DATE_SUB(NOW(), INTERVAL 12 HOUR)"
         )->execute(array($login));
@@ -485,8 +485,8 @@ function getVoteLog($limit = 50, $offset = 0) {
     $db   = getDB();
     $stmt = $db->prepare(
         "SELECT l.*, t.name AS top_name
-         FROM icpvote_log l
-         LEFT JOIN icpvote_tops t ON t.id = l.top_id
+         FROM 4top_log l
+         LEFT JOIN 4top_tops t ON t.id = l.top_id
          ORDER BY l.voted_at DESC
          LIMIT ? OFFSET ?"
     );
@@ -494,14 +494,7 @@ function getVoteLog($limit = 50, $offset = 0) {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function getPendingRewards($login) {
-    $db   = getDB();
-    $stmt = $db->prepare(
-        "SELECT * FROM icpvote_pending_rewards WHERE login = ? AND delivered = 0"
-    );
-    $stmt->execute(array($login));
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
+
 
 // ── Utilitários ───────────────────────────────────────────────────────────────
 

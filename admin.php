@@ -50,14 +50,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($top_btn === '4top.php') {
                 $sort_order = 0;
                 // Empurra todos os outros para cima
-                $db->exec("UPDATE icpvote_tops SET sort_order = sort_order + 1 WHERE top_btn <> '4top.php'");
+                $db->exec("UPDATE 4top_tops SET sort_order = sort_order + 1 WHERE top_btn <> '4top.php'");
             } else {
-                $row = $db->query("SELECT COALESCE(MAX(sort_order), 0) FROM icpvote_tops")->fetchColumn();
+                $row = $db->query("SELECT COALESCE(MAX(sort_order), 0) FROM 4top_tops")->fetchColumn();
                 $sort_order = (int)$row + 1;
             }
 
             $stmt = $db->prepare(
-                "INSERT INTO icpvote_tops (name, top_id, token, url, api_url, top_btn, enabled, sort_order)
+                "INSERT INTO 4top_tops (name, top_id, token, url, api_url, top_btn, enabled, sort_order)
                  VALUES (?, ?, ?, ?, NULL, ?, 1, ?)"
             );
             $stmt->execute(array($name, $top_id, $token ?: null, $url ?: null, $top_btn, $sort_order));
@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif ($action === 'remove_top') {
         $id = (int)($_POST['id'] ?? 0);
         if ($id > 0) {
-            $stmt = $db->prepare("DELETE FROM icpvote_tops WHERE id = ?");
+            $stmt = $db->prepare("DELETE FROM 4top_tops WHERE id = ?");
             $stmt->execute(array($id));
             $success = 'Top removido.';
         }
@@ -80,13 +80,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id = (int)($_POST['id'] ?? 0);
         if ($id > 0) {
             // 4TOP não pode ser desativado
-            $chk = $db->prepare("SELECT top_btn FROM icpvote_tops WHERE id = ? LIMIT 1");
+            $chk = $db->prepare("SELECT top_btn FROM 4top_tops WHERE id = ? LIMIT 1");
             $chk->execute(array($id));
             $row = $chk->fetch();
             if ($row && ($row['top_btn'] ?? '') === '4top.php') {
                 $error = 'O 4TOP não pode ser desativado.';
             } else {
-                $stmt = $db->prepare("UPDATE icpvote_tops SET enabled = 1 - enabled WHERE id = ?");
+                $stmt = $db->prepare("UPDATE 4top_tops SET enabled = 1 - enabled WHERE id = ?");
                 $stmt->execute(array($id));
                 $success = 'Status do top atualizado.';
             }
@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $added = 0;
         $stmt  = $db->prepare(
-            "INSERT INTO icpvote_rewards (item_id, quantity, description) VALUES (?, ?, ?)"
+            "INSERT INTO 4top_rewards (item_id, quantity, description) VALUES (?, ?, ?)"
         );
         for ($i = 0; $i < count($item_ids); $i++) {
             $iid = (int)($item_ids[$i] ?? 0);
@@ -122,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif ($action === 'remove_reward') {
         $id = (int)($_POST['id'] ?? 0);
         if ($id > 0) {
-            $stmt = $db->prepare("DELETE FROM icpvote_rewards WHERE id = ?");
+            $stmt = $db->prepare("DELETE FROM 4top_rewards WHERE id = ?");
             $stmt->execute(array($id));
             $success = 'Reward removido.';
         }
@@ -130,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // ── Clear all rewards ──
     elseif ($action === 'clear_rewards') {
-        $db->exec("DELETE FROM icpvote_rewards");
+        $db->exec("DELETE FROM 4top_rewards");
         $success = 'Todos os rewards foram removidos.';
     }
 }
@@ -142,10 +142,10 @@ $rewards = getRewards();
 $has4top = has4Top();
 
 // Vote log stats
-$stmt = $db->query("SELECT COUNT(*) FROM icpvote_log");
+$stmt = $db->query("SELECT COUNT(*) FROM 4top_log");
 $total_votes = (int)$stmt->fetchColumn();
 
-$stmt = $db->query("SELECT COUNT(*) FROM icpvote_log WHERE voted_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)");
+$stmt = $db->query("SELECT COUNT(*) FROM 4top_log WHERE voted_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)");
 $votes_today = (int)$stmt->fetchColumn();
 
 $pending_rewards = 0;

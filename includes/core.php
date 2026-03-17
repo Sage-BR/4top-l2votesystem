@@ -1,18 +1,7 @@
 <?php
 /**
- * VoteSystem — Core (lógica de integração com o jogo)
- *
- * Responsabilidades:
- *   - Hash / verificação de senha por projeto
- *   - Busca de conta no banco do jogo
- *   - Busca de personagem (aCis)
- *   - Entrega de reward in-game
- *   - IP do cliente
- *   - Sessão / CSRF
- *
- * NÃO contém lógica de tops, votação ou UI — isso fica em helpers.php.
- *
- * Compatível: PHP 5.6 ~ 8.2
+ * VoteSystem — Core
+ * Compatível: aCis | L2JOrion | L2JMobius
  */
 
 if (!defined('INSTALLED')) {
@@ -22,41 +11,25 @@ if (!defined('INSTALLED')) {
 
 // ── Hash de senha ─────────────────────────────────────────────────────────────
 //
-// aCis 370+  → base64_encode( sha1($pass, true) )
-// L2JServer  → base64_encode( sha1($pass, true) )   (mesmo algoritmo)
-// L2JMobius  → strtolower( hash('sha256', $pass) )
+// aCis / L2JOrion / L2JMobius → base64_encode( sha1($pass, true) )
+//
+// Todos usam o mesmo algoritmo: SHA1 raw bytes → Base64
+// Java equivalente: Base64.encode( MessageDigest("SHA").digest(password.getBytes(UTF_8)) )
 //
 function gameHashPassword($plainPassword) {
-    switch (GAME_PROJECT) {
-        case 'l2jmobius':
-            return strtolower(hash('sha256', $plainPassword));
-
-        case 'acis':
-        case 'l2jserver':
-        default:
-            return base64_encode(sha1($plainPassword, true));
-    }
+    return base64_encode(sha1($plainPassword, true));
 }
 
-/**
- * Verifica senha em texto plano contra o hash armazenado.
- * Usa hash_equals para evitar timing attacks.
- */
 function gameVerifyPassword($plainPassword, $storedHash) {
     $computed = gameHashPassword($plainPassword);
     return hash_equals((string)$storedHash, $computed);
 }
 
 // ── Conta do jogo ─────────────────────────────────────────────────────────────
-
-/**
- * Retorna array com login, password e access_level da conta,
- * ou false se não encontrada.
- *
- * Coluna de access_level:
- *   aCis / L2JServer  → access_level  (snake_case)
- *   L2JMobius         → accessLevel   (camelCase)
- */
+//
+// aCis / L2JOrion  → access_level  (snake_case)
+// L2JMobius        → accessLevel   (camelCase)
+//
 function gameGetAccount($login) {
     $col  = (GAME_PROJECT === 'l2jmobius') ? 'accessLevel' : 'access_level';
     $db   = getDB();
@@ -68,9 +41,6 @@ function gameGetAccount($login) {
     return $row ?: false;
 }
 
-/**
- * Tenta autenticar. Retorna array('login', 'access_level') ou false.
- */
 function gameLogin($login, $password) {
     $account = gameGetAccount($login);
     if (!$account) return false;
@@ -83,16 +53,20 @@ function gameLogin($login, $password) {
     );
 }
 
-// ── Personagem (aCis) ─────────────────────────────────────────────────────────
+// ── Personagem ────────────────────────────────────────────────────────────────
+//
+// aCis / L2JOrion → obj_Id,  account_name, deletetime, lastAccess
+// L2JMobius       → charId,  account_name, deletetime, lastAccess
+//
+function _charIdCol() {
+    return (GAME_PROJECT === 'l2jmobius') ? 'charId' : 'obj_Id';
+}
 
-/**
- * Retorna todos os personagens ativos da conta para o jogador escolher.
- * Retorna array de [['obj_Id' => ..., 'char_name' => ...], ...] ordenado por lastAccess DESC.
- */
 function gameGetChars($login) {
+    $col  = _charIdCol();
     $db   = getDB();
     $stmt = $db->prepare(
-        "SELECT obj_Id, char_name FROM characters
+        "SELECT `{$col}` AS obj_Id, char_name FROM characters
          WHERE account_name = ?
            AND deletetime = 0
          ORDER BY lastAccess DESC"
@@ -101,14 +75,12 @@ function gameGetChars($login) {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-/**
- * Verifica se o obj_Id pertence à conta. Proteção contra forja de obj_Id.
- */
 function gameCharBelongsTo($login, $objId) {
+    $col  = _charIdCol();
     $db   = getDB();
     $stmt = $db->prepare(
-        "SELECT obj_Id FROM characters
-         WHERE account_name = ? AND obj_Id = ? AND deletetime = 0
+        "SELECT `{$col}` FROM characters
+         WHERE account_name = ? AND `{$col}` = ? AND deletetime = 0
          LIMIT 1"
     );
     $stmt->execute(array($login, (int)$objId));
@@ -116,145 +88,83 @@ function gameCharBelongsTo($login, $objId) {
 }
 
 // ── Entrega de reward ─────────────────────────────────────────────────────────
-
-/**
- * Entrega rewards ao jogador conforme o projeto configurado.
- *
- * aCis:
- *   Insere diretamente na tabela `items`.
- *   $objId = obj_Id escolhido pelo jogador. Se null, usa o mais recente.
- *
- * L2JServer / L2JMobius:
- *   Insere em `icpvote_pending_rewards` para entrega via cron ou mod Java.
- *
- * @param  string   $login    Login da conta
- * @param  array    $rewards  Rows de icpvote_rewards
- * @param  PDO      $db       Conexão PDO (dentro de transação)
- * @param  int|null $objId    obj_Id escolhido pelo jogador (aCis)
- * @return bool               true = entregue
- */
+//
+// Todos os projetos entregam direto na tabela items do jogo.
+//
 function gameDeliverRewards($login, array $rewards, $db, $objId = null) {
     if (empty($rewards)) return true;
-
-    if (GAME_PROJECT === 'acis') {
-        return _deliverRewardsAcis($login, $rewards, $db, $objId);
-    }
-
-    return _queueRewards($login, $rewards, $db);
+    return _deliverRewardsGame($login, $rewards, $db, $objId);
 }
 
 /**
- * aCis — insere itens diretamente na tabela `items`.
+ * Todos os projetos — INSERT direto em items.
  *
- * Schema items (aCis):
- *   owner_id      INT(11)           — obj_Id do personagem
- *   object_id     INT(11) PK        — ID único do item (gerado aqui)
- *   item_id       SMALLINT UNSIGNED — ID do item no jogo
- *   count         INT UNSIGNED      — quantidade
- *   enchant_level SMALLINT          — 0
- *   loc           VARCHAR(10)       — 'INVENTORY'
- *   loc_data      INT               — 0
- *   custom_type1  INT               — 0
- *   custom_type2  INT               — 0
- *   mana_left     SMALLINT          — -1
- *   time          BIGINT            — 0
+ * aCis / L2JOrion → sem coluna 'time'
+ * L2JMobius       → com coluna 'time'
  */
-function _deliverRewardsAcis($login, array $rewards, $db, $objId = null) {
-    // Usa o obj_Id escolhido pelo jogador; fallback para o mais recente
-    if ($objId !== null) {
-        $ownerId = (int)$objId;
+function _deliverRewardsGame($login, array $rewards, $db, $objId = null) {
+    $ownerId = _resolveOwnerId($login, $objId, $db);
+    if ($ownerId === null) return false;
+
+    $maxId = _nextObjectId($db);
+
+    if (GAME_PROJECT === 'l2jmobius') {
+        $ins = $db->prepare(
+            "INSERT INTO items
+                (owner_id, object_id, item_id, count, enchant_level,
+                 loc, loc_data, custom_type1, custom_type2, mana_left, time)
+             VALUES (?, ?, ?, ?, 0, 'INVENTORY', 0, 0, 0, -1, 0)"
+        );
     } else {
-        $chars   = gameGetChars($login);
-        $ownerId = !empty($chars) ? (int)$chars[0]['obj_Id'] : null;
+        $ins = $db->prepare(
+            "INSERT INTO items
+                (owner_id, object_id, item_id, count, enchant_level,
+                 loc, loc_data, custom_type1, custom_type2, mana_left)
+             VALUES (?, ?, ?, ?, 0, 'INVENTORY', 0, 0, 0, -1)"
+        );
     }
-
-    if ($ownerId === null) {
-        // Sem personagem — usa fila como fallback
-        return _queueRewards($login, $rewards, $db);
-    }
-
-    // Reserva bloco de object_ids com lock para evitar duplicata em concorrência
-    $maxStmt = $db->query("SELECT COALESCE(MAX(object_id), 268435456) FROM items FOR UPDATE");
-    $maxId   = (int)$maxStmt->fetchColumn();
-
-    $ins = $db->prepare(
-        "INSERT INTO items
-            (owner_id, object_id, item_id, count, enchant_level,
-             loc, loc_data, custom_type1, custom_type2, mana_left, time)
-         VALUES
-            (?, ?, ?, ?, 0, 'INVENTORY', 0, 0, 0, -1, 0)"
-    );
 
     foreach ($rewards as $r) {
-        $maxId++;
-        $ins->execute(array(
-            $ownerId,
-            $maxId,
-            (int)$r['item_id'],
-            (int)$r['quantity'],
-        ));
+        $ins->execute(array($ownerId, ++$maxId, (int)$r['item_id'], (int)$r['quantity']));
     }
-
     return true;
 }
 
-/**
- * L2JServer / L2JMobius / fallback aCis sem personagem.
- * Insere em icpvote_pending_rewards para entrega externa.
- */
-function _queueRewards($login, array $rewards, $db) {
-    $stmt = $db->prepare(
-        "INSERT INTO icpvote_pending_rewards (login, item_id, quantity, created_at, delivered)
-         VALUES (?, ?, ?, NOW(), 0)"
-    );
-    foreach ($rewards as $r) {
-        $stmt->execute(array($login, (int)$r['item_id'], (int)$r['quantity']));
-    }
-    return true;
+// ── Helpers internos ──────────────────────────────────────────────────────────
+
+function _resolveOwnerId($login, $objId, $db) {
+    if ($objId !== null) return (int)$objId;
+    $chars = gameGetChars($login);
+    // gameGetChars já retorna charId ou obj_Id mapeado como obj_Id
+    return !empty($chars) ? (int)$chars[0]['obj_Id'] : null;
+}
+
+function _nextObjectId($db) {
+    $stmt = $db->query("SELECT COALESCE(MAX(object_id), 268435456) FROM items FOR UPDATE");
+    return (int)$stmt->fetchColumn();
 }
 
 // ── IP do cliente ─────────────────────────────────────────────────────────────
 
-/**
- * Retorna o IPv4 real do visitante.
- * Ordem: Cloudflare → X-Real-IP → X-Forwarded-For → REMOTE_ADDR.
- * IPs privados/reservados na cadeia X-Forwarded-For são ignorados.
- */
 function clientIp() {
-    // Cloudflare — já é o IP final do usuário, confiar diretamente
     if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
         $ip = trim($_SERVER['HTTP_CF_CONNECTING_IP']);
-        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-            return $ip;
-        }
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return $ip;
     }
-
-    // X-Real-IP (nginx)
     if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
         $ip = trim($_SERVER['HTTP_X_REAL_IP']);
-        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-            return $ip;
-        }
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return $ip;
     }
-
-    // X-Forwarded-For — pega o primeiro IP público da cadeia
     if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
         foreach (explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']) as $ip) {
             $ip = trim($ip);
-            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-                return $ip;
-            }
+            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return $ip;
         }
     }
-
-    // Conexão direta — aceita qualquer IP válido (pode ser privado em LAN)
     if (!empty($_SERVER['REMOTE_ADDR'])) {
         $ip = trim($_SERVER['REMOTE_ADDR']);
-        if (filter_var($ip, FILTER_VALIDATE_IP)) {
-            return $ip;
-        }
+        if (filter_var($ip, FILTER_VALIDATE_IP)) return $ip;
     }
-
     return 'UNKNOWN';
 }
 

@@ -14,6 +14,7 @@ require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/core.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/helpers.php';
+require_once __DIR__ . '/includes/layout.php';
 
 startSession();
 
@@ -43,16 +44,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$projects = array('acis' => 'aCis', 'l2jserver' => 'L2JServer', 'l2jmobius' => 'L2JMobius');
+$projects     = array('acis' => 'aCis', 'l2jserver' => 'L2JServer', 'l2jmobius' => 'L2JMobius');
 $project_name = isset($projects[GAME_PROJECT]) ? $projects[GAME_PROJECT] : GAME_PROJECT;
+
+// Layout config
+$siteName   = defined('LAYOUT_SITE_NAME')   ? LAYOUT_SITE_NAME   : 'VoteSystem';
+$siteSuffix = defined('LAYOUT_SITE_SUFFIX')  ? LAYOUT_SITE_SUFFIX  : '4Top Servers';
+$favicon    = defined('LAYOUT_FAVICON')      ? LAYOUT_FAVICON      : '';
+$extraCss   = defined('LAYOUT_EXTRA_CSS')    ? LAYOUT_EXTRA_CSS    : '';
+$brandIcon  = defined('LAYOUT_BRAND_ICON')   ? LAYOUT_BRAND_ICON   : '⚔️';
+$footer     = defined('LAYOUT_FOOTER')       ? LAYOUT_FOOTER       : 'VoteSystem <span class="text-gold">4Top Servers</span>';
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VoteSystem 4Top — by 4TeamBR | Login</title>
+  <title><?= htmlspecialchars($siteName) ?> — Login | <?= htmlspecialchars($siteSuffix) ?></title>
+  <?php if ($favicon): $ext = strtolower(pathinfo($favicon, PATHINFO_EXTENSION)); $mime = ($ext==='png')?'image/png':(($ext==='svg')?'image/svg+xml':'image/x-icon'); ?>
+  <link rel="icon" type="<?= $mime ?>" href="<?= htmlspecialchars($favicon) ?>">
+  <?php endif; ?>
   <link rel="stylesheet" href="assets/css/main.css">
+  <?php if (trim($extraCss)): ?><style><?= $extraCss ?></style><?php endif; ?>
   <style>
     .rune-bg { position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden; }
     .rune { position:absolute;font-size:1.5rem;opacity:0;color:rgba(201,168,76,.07);animation:floatRune 12s infinite; }
@@ -79,9 +92,9 @@ for ($i = 0; $i < 14; $i++) {
   <div class="login-box animate-in">
 
     <div class="login-logo">
-      <div style="font-size:2.8rem;margin-bottom:.5rem;line-height:1;text-shadow:0 0 30px rgba(201,168,76,.4)">⚔️</div>
-      <div class="logo-text">VoteSystem</div>
-      <div class="logo-sub">4Top Servers &mdash; <?= e($project_name) ?></div>
+      <div style="font-size:2.8rem;margin-bottom:.5rem;line-height:1;text-shadow:0 0 30px rgba(201,168,76,.4)"><?= $brandIcon ?></div>
+      <div class="logo-text"><?= htmlspecialchars($siteName) ?></div>
+      <div class="logo-sub"><?= htmlspecialchars($siteSuffix) ?> &mdash; <?= e($project_name) ?></div>
     </div>
 
     <?php if ($msg === 'nologin'): ?>
@@ -128,7 +141,7 @@ for ($i = 0; $i < 14; $i++) {
     </div>
 
     <div class="footer" style="border:none;margin-top:1.5rem">
-      VoteSystem <span class="text-gold">4Top Servers</span>
+      <?= $footer ?>
     </div>
   </div>
 </div>
