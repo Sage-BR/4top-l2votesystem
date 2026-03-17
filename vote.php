@@ -106,50 +106,50 @@ renderNav();
 <main class="main-content">
 
   <div class="page-hero">
-    <div class="eyebrow">⚜ Vote &amp; Ganhe</div>
-    <h1>Painel de Votação</h1>
-    <p>Vote nos tops para apoiar o servidor e ganhar recompensas exclusivas!</p>
+    <div class="eyebrow" data-i18n="vote_eyebrow">⚜ Vote &amp; Ganhe</div>
+    <h1 data-i18n="vote_title">Painel de Votação</h1>
+    <p data-i18n="vote_subtitle">Vote nos tops para apoiar o servidor e ganhar recompensas exclusivas!</p>
     <div class="divider"><span>✦</span></div>
   </div>
 
   <div class="stats-row">
     <div class="stat-card">
       <div class="stat-value"><?= $totalVotes ?></div>
-      <div class="stat-label">Votos Totais</div>
+      <div class="stat-label" data-i18n="stat_total_votes">Votos Totais</div>
     </div>
     <div class="stat-card">
       <?php $available = 0; foreach ($tops_status as $t) { if ($t['can_vote']) $available++; } ?>
       <div class="stat-value"><?= $available ?></div>
-      <div class="stat-label">Tops Disponíveis</div>
+      <div class="stat-label" data-i18n="stat_available">Tops Disponíveis</div>
     </div>
     <div class="stat-card">
       <div class="stat-value"><?= count($rewards) ?></div>
-      <div class="stat-label">Itens de Reward</div>
+      <div class="stat-label" data-i18n="stat_reward_items">Itens de Reward</div>
     </div>
     <div class="stat-card">
       <div class="stat-value"><?= count($tops) ?></div>
-      <div class="stat-label">Tops Ativos</div>
+      <div class="stat-label" data-i18n="stat_active_tops">Tops Ativos</div>
     </div>
   </div>
 
   <?php if (!has4Top()): ?>
   <div class="alert alert-warning" style="text-align:center;padding:1.5rem">
-    ⚠ <strong>Votação indisponível.</strong><br>
-    <span style="font-size:.85rem;color:var(--text-secondary)">
+    <span data-i18n-html="warn_vote_disabled">⚠ <strong>Votação indisponível.</strong></span><br>
+    <span style="font-size:.85rem;color:var(--text-secondary)" data-i18n="warn_4top_required">
       O administrador ainda não configurou o 4TOP, que é obrigatório para a votação funcionar.
     </span>
   </div>
   <?php elseif (empty($tops)): ?>
   <div class="alert alert-warning">
-    ⚠ Nenhum TOP configurado ainda.
+    <span data-i18n="warn_no_tops">⚠ Nenhum TOP configurado ainda.</span>
     <?php if (isAdmin()): ?>
-      <a href="admin.php" style="color:var(--gold)">Configure no painel de admin →</a>
+      <a href="admin.php" style="color:var(--gold)" data-i18n="admin_configure_link">Configure no painel de admin →</a>
     <?php endif; ?>
   </div>
   <?php else: ?>
 
   <div style="margin-bottom:2rem">
-    <div class="section-heading">🗳 Sites de Votação</div>
+    <div class="section-heading" data-i18n="section_vote_sites">🗳 Sites de Votação</div>
     <div class="tops-grid" id="topsGrid">
 
 <?php
@@ -172,14 +172,15 @@ foreach ($tops_status as $idx => $top):
 
         <div style="text-align:center;margin-bottom:.6rem">
           <div class="top-name"><?= e($top['name']) ?></div>
-          <div class="top-status <?= $top['can_vote'] ? 'ok' : 'pending' ?>" style="justify-content:center">
+          <div class="top-status <?= $top['can_vote'] ? 'ok' : 'pending' ?>" style="justify-content:center"
+               data-i18n="<?= $top['can_vote'] ? 'top_available_status' : 'top_cooldown_status' ?>">
             <?= $top['can_vote'] ? '● Disponível' : '⏳ Em cooldown' ?>
           </div>
         </div>
 
         <?php if (!$top['can_vote']): ?>
         <div class="top-cooldown" id="timer_<?= $top['id'] ?>" style="text-align:center">
-          ⏱ Próximo voto em: <strong class="countdown" data-secs="<?= $top['cooldown_left'] ?>"><?= $remaining_fmt ?></strong>
+          <span data-i18n="top_next_vote">⏱ Próximo voto em:</span> <strong class="countdown" data-secs="<?= $top['cooldown_left'] ?>"><?= $remaining_fmt ?></strong>
         </div>
         <?php endif; ?>
 
@@ -215,20 +216,21 @@ foreach ($tops_status as $idx => $top):
   <div id="claimSection" style="text-align:center;margin:1.5rem 0;">
     <div id="claimBox" style="background:linear-gradient(135deg,rgba(201,168,76,.15),rgba(201,168,76,.05));border:1px solid rgba(201,168,76,.4);border-radius:10px;padding:1.5rem 2rem;display:inline-block;max-width:480px;width:100%">
       <div style="font-size:2rem;margin-bottom:.5rem">🎁</div>
-      <div style="font-size:1.1rem;font-weight:700;color:var(--gold);margin-bottom:.4rem">Recompensa Diária</div>
-      <div style="font-size:.82rem;color:var(--text-dim);margin-bottom:1rem">Vote em todos os tops e clique abaixo para verificar.</div>
+      <div style="font-size:1.1rem;font-weight:700;color:var(--gold);margin-bottom:.4rem" data-i18n="claim_daily_reward">Recompensa Diária</div>
+      <div style="font-size:.82rem;color:var(--text-dim);margin-bottom:1rem" data-i18n="claim_vote_all">Vote em todos os tops e clique abaixo para verificar.</div>
 
       <div id="stepCheck">
         <button id="checkBtn" onclick="doCheckVotes(this)"
           style="background:linear-gradient(135deg,#c9a84c,#a07830);color:#0a0a0f;font-weight:700;font-size:1rem;
                  padding:.75rem 2.5rem;border:none;border-radius:6px;cursor:pointer;letter-spacing:.05em;
-                 box-shadow:0 4px 20px rgba(201,168,76,.3);transition:all .2s">
+                 box-shadow:0 4px 20px rgba(201,168,76,.3);transition:all .2s"
+          data-i18n="btn_check_votes">
           <?= $brandIcon ?> Verificar Votos
         </button>
       </div>
 
       <div id="stepClaim" style="display:none;margin-top:1rem">
-        <div style="font-size:.8rem;color:var(--text-dim);margin-bottom:.5rem">Escolha o personagem que vai receber:</div>
+        <div style="font-size:.8rem;color:var(--text-dim);margin-bottom:.5rem" data-i18n="claim_choose_char">Escolha o personagem que vai receber:</div>
         <select id="charSelect"
           style="width:100%;padding:.6rem .75rem;border-radius:6px;border:1px solid rgba(201,168,76,.4);
                  background:rgba(0,0,0,.3);color:var(--text-primary);font-size:.9rem;margin-bottom:.75rem;cursor:pointer">
@@ -236,7 +238,8 @@ foreach ($tops_status as $idx => $top):
         <button id="claimBtn" onclick="doClaimReward(this)"
           style="background:linear-gradient(135deg,#4ade80,#16a34a);color:#0a0a0f;font-weight:700;font-size:1rem;
                  padding:.75rem 2.5rem;border:none;border-radius:6px;cursor:pointer;letter-spacing:.05em;
-                 box-shadow:0 4px 20px rgba(74,222,128,.25);transition:all .2s">
+                 box-shadow:0 4px 20px rgba(74,222,128,.25);transition:all .2s"
+          data-i18n="btn_claim_reward">
           🎁 Receber Recompensa
         </button>
       </div>
@@ -248,9 +251,9 @@ foreach ($tops_status as $idx => $top):
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.25rem;margin-top:1.5rem;">
 
     <div class="card">
-      <div class="card-title">🎁 Recompensas por Voto</div>
+      <div class="card-title" data-i18n="card_rewards_title">🎁 Recompensas por Voto</div>
       <?php if (empty($rewards)): ?>
-      <p style="font-size:.85rem;color:var(--text-dim)">Nenhum reward configurado.</p>
+      <p style="font-size:.85rem;color:var(--text-dim)" data-i18n="no_reward_configured">Nenhum reward configurado.</p>
       <?php else: ?>
       <div class="rewards-list">
         <?php foreach ($rewards as $r): ?>
@@ -264,28 +267,28 @@ foreach ($tops_status as $idx => $top):
         </div>
         <?php endforeach; ?>
       </div>
-      <p style="font-size:.75rem;color:var(--text-dim);margin-top:.75rem;line-height:1.5">
+      <p style="font-size:.75rem;color:var(--text-dim);margin-top:.75rem;line-height:1.5" data-i18n="reward_auto_delivery">
         Os itens serão entregues ao seu personagem automaticamente após o voto ser confirmado.
       </p>
       <?php endif; ?>
     </div>
 
     <div class="card">
-      <div class="card-title">📖 Como Votar</div>
+      <div class="card-title" data-i18n="card_how_to_vote">📖 Como Votar</div>
       <ol style="list-style:none;display:flex;flex-direction:column;gap:.75rem;counter-reset:steps">
         <?php
         $steps = array(
-            array('🌐', 'Clique na imagem do top para abrir o site de votação'),
-            array('🗳', 'Vote de verdade no site que abrir na nova aba'),
-            array('⏳', 'Repita para todos os tops disponíveis'),
-            array('↩', 'Volte para esta página — o sistema detecta seu voto automaticamente'),
-            array('🎁', 'Clique em <strong style="color:var(--gold)">Entregar Recompensa</strong> para receber os itens'),
-            array('⏱', 'Você poderá votar novamente após <strong style="color:var(--gold)">12 horas</strong>'),
+            array('🌐', 'vote_step1'),
+            array('🗳', 'vote_step2'),
+            array('⏳', 'vote_step3'),
+            array('↩', 'vote_step4'),
+            array('🎁', 'vote_step5'),
+            array('⏱', 'vote_step6'),
         );
         foreach ($steps as $i => $s): ?>
         <li style="display:flex;gap:.75rem;align-items:flex-start;font-size:.82rem;color:var(--text-secondary)">
           <span style="font-size:1.1rem;flex-shrink:0"><?= $s[0] ?></span>
-          <span style="line-height:1.5"><?= $s[1] ?></span>
+          <span style="line-height:1.5" data-i18n-html="<?= $s[1] ?>"></span>
         </li>
         <?php endforeach; ?>
       </ol>
@@ -351,8 +354,18 @@ function showToast(msg, type) {
     setTimeout(function() { el.style.transform = 'translateY(100px)'; el.style.opacity = '0'; }, 3500);
 }
 
+/* Retorna texto traduzido; usa vsI18n se disponível, senão fallback PT */
+function _t(key) {
+    return (window.vsI18n) ? window.vsI18n.t(key) : key;
+}
+
+/* Traduz mensagem de resposta do servidor */
+function _tm(res) {
+    return (window.vsI18n) ? window.vsI18n.translateMsg(res) : (res.msg || '');
+}
+
 function doCheckVotes(btn) {
-    btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = '⏳ Verificando votos...';
+    btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = _t('msg_checking_votes');
     var fd = new FormData();
     fd.append('action', 'check_votes');
     ajax('vote.php', fd, function(res) {
@@ -360,13 +373,13 @@ function doCheckVotes(btn) {
             populateChars(res.chars);
             document.getElementById('stepCheck').style.display = 'none';
             document.getElementById('stepClaim').style.display = 'block';
-            showToast(res.msg, 'ok');
+            showToast(_tm(res) || _t('msg_all_confirmed'), 'ok');
         } else if (res.status === 'needs_l2jbrasil') {
             btn.textContent = '⏳ Verificando L2JBrasil...';
             var l2 = res.l2jbrasil;
             checkL2JBrasilBrowser(l2.server_id, l2.token,
                 function() {
-                    btn.textContent = '⏳ Confirmando...';
+                    btn.textContent = _t('msg_confirming');
                     var fd2 = new FormData();
                     fd2.append('action', 'confirm_l2jbrasil');
                     fd2.append('token',  l2.signed_token);
@@ -375,61 +388,67 @@ function doCheckVotes(btn) {
                             populateChars(res2.chars);
                             document.getElementById('stepCheck').style.display = 'none';
                             document.getElementById('stepClaim').style.display = 'block';
-                            showToast(res2.msg, 'ok');
+                            showToast(_tm(res2) || _t('msg_all_confirmed'), 'ok');
                         } else {
-                            showToast(res2.msg || 'Erro ao confirmar.', 'error');
-                            btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '⚔ Verificar Votos';
+                            showToast(_tm(res2) || _t('msg_connect_error'), 'error');
+                            btn.disabled = false; btn.style.opacity = '1';
+                            btn.textContent = _t('btn_check_votes');
                         }
                     }, function() {
-                        showToast('Erro ao conectar. Tente novamente.', 'error');
-                        btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '⚔ Verificar Votos';
+                        showToast(_t('msg_connect_error'), 'error');
+                        btn.disabled = false; btn.style.opacity = '1';
+                        btn.textContent = _t('btn_check_votes');
                     });
                 },
                 function(reason) {
                     showToast('⚠ L2JBrasil: ' + reason, 'info');
-                    btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '⚔ Verificar Votos';
+                    btn.disabled = false; btn.style.opacity = '1';
+                    btn.textContent = _t('btn_check_votes');
                 }
             );
         } else if (res.status === 'cooldown') {
-            showToast(res.msg, 'cooldown');
-            btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '⚔ Verificar Votos';
+            showToast(_tm(res) || _t('msg_cooldown'), 'cooldown');
+            btn.disabled = false; btn.style.opacity = '1';
+            btn.textContent = _t('btn_check_votes');
         } else {
-            showToast(res.msg || 'Erro desconhecido.', res.status === 'not_voted' ? 'info' : 'error');
-            btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '⚔ Verificar Votos';
+            showToast(_tm(res) || _t('msg_connect_error'), res.status === 'not_voted' ? 'info' : 'error');
+            btn.disabled = false; btn.style.opacity = '1';
+            btn.textContent = _t('btn_check_votes');
         }
     }, function() {
-        showToast('Erro ao conectar. Tente novamente.', 'error');
-        btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '⚔ Verificar Votos';
+        showToast(_t('msg_connect_error'), 'error');
+        btn.disabled = false; btn.style.opacity = '1';
+        btn.textContent = _t('btn_check_votes');
     });
 }
 
 function doClaimReward(btn) {
     var objId = document.getElementById('charSelect').value;
-    if (!objId) { showToast('Selecione um personagem.', 'error'); return; }
-    btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = '⏳ Entregando...';
+    if (!objId) { showToast(_t('msg_select_char'), 'error'); return; }
+    btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = _t('msg_delivering');
     var fd = new FormData();
     fd.append('action', 'claim_reward');
     fd.append('obj_id', objId);
     ajax('vote.php', fd, function(res) {
         if (res.status === 'ok') {
-            showToast(res.msg, 'ok');
+            showToast(_tm(res) || _t('msg_reward_ok'), 'ok');
             document.getElementById('claimSection').innerHTML =
                 '<div style="background:linear-gradient(135deg,rgba(26,100,50,.2),rgba(26,100,50,.05));' +
                 'border:1px solid rgba(45,138,90,.4);border-radius:10px;padding:1.5rem 2rem;' +
                 'display:inline-block;max-width:480px;width:100%;text-align:center">' +
                 '<div style="font-size:2rem;margin-bottom:.5rem">✅</div>' +
-                '<div style="font-size:1rem;font-weight:700;color:#4ade80;margin-bottom:.3rem">Recompensa entregue!</div>' +
-                '<div style="font-size:.8rem;color:var(--text-dim)">Volte em 12h para votar novamente.</div></div>';
+                '<div style="font-size:1rem;font-weight:700;color:#4ade80;margin-bottom:.3rem">' + _t('reward_delivered_title') + '</div>' +
+                '<div style="font-size:.8rem;color:var(--text-dim)">' + _t('reward_delivered_sub') + '</div></div>';
         } else if (res.status === 'cooldown') {
-            showToast(res.msg, 'cooldown');
-            btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🎁 Receber Recompensa';
+            showToast(_tm(res) || _t('msg_cooldown'), 'cooldown');
+            btn.disabled = false; btn.style.opacity = '1'; btn.textContent = _t('btn_claim_reward');
         } else {
-            showToast(res.msg || 'Erro desconhecido.', 'error');
-            btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🎁 Receber Recompensa';
+            showToast(_tm(res) || _t('msg_reward_error'), 'error');
+            btn.disabled = false; btn.style.opacity = '1'; btn.textContent = _t('btn_claim_reward');
         }
     }, function() {
-        showToast('Erro ao conectar. Tente novamente.', 'error');
-        btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🎁 Receber Recompensa';
+        showToast(_t('msg_connect_error'), 'error');
+        btn.disabled = false; btn.style.opacity = '1'; btn.textContent = _t('btn_claim_reward');
     });
 }
 

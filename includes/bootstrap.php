@@ -45,6 +45,9 @@ function renderHead($pageTitle = '') {
     }
     echo '<link rel="stylesheet" href="assets/css/main.css">';
     if (trim($extraCss)) echo '<style>' . $extraCss . '</style>';
+    // i18n: localForage (IndexedDB/WebSQL/localStorage) + sistema de idiomas
+    echo '<script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>';
+    echo '<script src="assets/js/i18n.js"></script>';
     echo '</head>';
     echo '<body>';
     echo '<div class="wrapper">';
@@ -62,15 +65,20 @@ function renderNav() {
     echo '<img src="https://i.imgur.com/MAuPJrp.png" alt="VoteSystem" style="height:36px;width:auto;display:block">';
     echo '</a>';
     echo '<ul class="nav-links">';
-    echo '<li><a href="vote.php" class="' . ($curPage === 'vote.php' ? 'active' : '') . '">⚜ Votar</a></li>';
+    echo '<li><a href="vote.php" class="' . ($curPage === 'vote.php' ? 'active' : '') . '" data-i18n="nav_vote">⚜ Votar</a></li>';
     if ($isAdm) {
-        echo '<li><a href="admin.php" class="' . ($curPage === 'admin.php' ? 'active' : '') . '">⚙ Admin</a></li>';
+        echo '<li><a href="admin.php" class="' . ($curPage === 'admin.php' ? 'active' : '') . '" data-i18n="nav_admin">⚙ Admin</a></li>';
     }
     foreach ($extraLinks as $link) {
         $target = !empty($link['target']) ? ' target="' . htmlspecialchars($link['target']) . '"' : '';
         echo '<li><a href="' . htmlspecialchars($link['url']) . '"' . $target . '>' . htmlspecialchars($link['label']) . '</a></li>';
     }
     echo '</ul>';
+
+    // ── Bloco direito: user info ──────────────────────────────────────────
+    echo '<div style="display:flex;align-items:center;gap:1rem;margin-left:auto">';
+
+    // User info
     echo '<div class="nav-user">';
     if ($login) {
         echo '<div class="user-info">';
@@ -78,12 +86,30 @@ function renderNav() {
         echo '<span>' . htmlspecialchars($login) . '</span>';
         if ($isAdm) echo '<span class="badge-admin">ADMIN</span>';
         echo '</div>';
-        echo '<a href="logout.php" class="btn btn-ghost btn-sm">Sair</a>';
+        echo '<a href="logout.php" class="btn btn-ghost btn-sm" data-i18n="nav_logout">Sair</a>';
     } else {
-        echo '<a href="index.php" class="btn btn-primary btn-sm">Login</a>';
+        echo '<a href="index.php" class="btn btn-primary btn-sm" data-i18n="nav_login">Login</a>';
     }
     echo '</div>';
+    echo '</div>'; // fim bloco direito
     echo '</nav>';
+
+    // ── Seletor de Idioma — fixo, logo abaixo do navbar, canto direito ───
+    echo '<div id="langSwitcher"'
+        . ' title="Language / Idioma / Язык"'
+        . ' style="position:fixed;top:70px;right:18px;z-index:150;'
+        .         'display:flex;align-items:center;gap:3px;'
+        .         'background:rgba(4,5,8,0.82);'
+        .         'border:1px solid rgba(201,168,76,0.28);'
+        .         'border-radius:8px;'
+        .         'padding:5px 7px;'
+        .         'backdrop-filter:blur(14px);'
+        .         'box-shadow:0 4px 20px rgba(0,0,0,0.5),0 0 0 1px rgba(201,168,76,0.06);">';
+    echo '<button class="lang-btn" data-lang="pt" title="Português (Brasil)" aria-label="Português (Brasil)">🇧🇷</button>';
+    echo '<button class="lang-btn" data-lang="es" title="Español"            aria-label="Español">🇪🇸</button>';
+    echo '<button class="lang-btn" data-lang="en" title="English (US)"       aria-label="English">🇺🇸</button>';
+    echo '<button class="lang-btn" data-lang="ru" title="Русский"            aria-label="Русский">🇷🇺</button>';
+    echo '</div>';
 }
 
 function renderFooter() {

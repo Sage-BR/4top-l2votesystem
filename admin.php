@@ -159,9 +159,9 @@ renderNav();
 <main class="main-content">
 
   <div class="page-hero">
-    <div class="eyebrow">⚙ Painel Administrativo</div>
-    <h1>Gerenciar VoteSystem</h1>
-    <p>Configure tops de votação, rewards e monitore a atividade dos jogadores.</p>
+    <div class="eyebrow" data-i18n="admin_eyebrow">⚙ Painel Administrativo</div>
+    <h1 data-i18n="admin_hero_title">Gerenciar VoteSystem</h1>
+    <p data-i18n="admin_hero_subtitle">Configure tops de votação, rewards e monitore a atividade dos jogadores.</p>
     <div class="divider"><span>✦</span></div>
   </div>
 
@@ -169,15 +169,15 @@ renderNav();
   <div class="stats-row">
     <div class="stat-card">
       <div class="stat-value"><?= $total_votes ?></div>
-      <div class="stat-label">Votos Total</div>
+      <div class="stat-label" data-i18n="admin_stat_total">Votos Total</div>
     </div>
     <div class="stat-card">
       <div class="stat-value"><?= $votes_today ?></div>
-      <div class="stat-label">Votos Hoje</div>
+      <div class="stat-label" data-i18n="admin_stat_today">Votos Hoje</div>
     </div>
     <div class="stat-card">
       <div class="stat-value"><?= count($tops) ?></div>
-      <div class="stat-label">Tops Cadastrados</div>
+      <div class="stat-label" data-i18n="admin_stat_tops">Tops Cadastrados</div>
     </div>
 
   </div>
@@ -193,13 +193,13 @@ renderNav();
 
     <!-- ── Add Top ── -->
     <div class="card">
-      <div class="card-title">➕ Adicionar Site de TOP</div>
+      <div class="card-title" data-i18n="admin_add_top_title">➕ Adicionar Site de TOP</div>
 
       <?php $availableTops = getAvailableTops(); ?>
 
       <?php if (!$has4top): ?>
       <div class="alert alert-warning" style="font-size:.82rem;margin-bottom:1rem;line-height:1.5">
-        ⚠ <strong>O 4TOP é obrigatório.</strong> Adicione o 4TOP antes de qualquer outro site de votação.
+        <span data-i18n-html="admin_4top_req_warn">⚠ <strong>O 4TOP é obrigatório.</strong> Adicione o 4TOP antes de qualquer outro site de votação.</span>
       </div>
       <?php endif; ?>
 
@@ -208,28 +208,24 @@ renderNav();
 
         <!-- Seleção do Top -->
         <div class="form-group">
-          <label class="form-label">Site de Votação</label>
+          <label class="form-label" data-i18n="admin_top_sel_label">Site de Votação</label>
           <?php if (empty($availableTops)): ?>
           <div class="alert alert-warning" style="font-size:.8rem">
             ⚠ Nenhum arquivo encontrado em <code>tops/</code>.
           </div>
           <?php else: ?>
           <?php
-            // Tops já cadastrados (pelo top_btn)
             $addedBtns = array();
             foreach ($tops as $t) {
                 if (!empty($t['top_btn'])) $addedBtns[] = $t['top_btn'];
             }
-            // Se 4top ainda não foi adicionado, filtra só ele no dropdown
             $showOnly4top = !$has4top;
           ?>
           <select name="top_btn" id="topBtnSelect" class="form-control" required
             onchange="onTopChange(this)">
-            <option value="">— Selecione o site —</option>
+            <option value="" data-i18n="admin_top_sel_ph">— Selecione o site —</option>
             <?php foreach ($availableTops as $file => $info):
-              // Se 4top ainda não adicionado, só mostra o 4top
               if ($showOnly4top && $file !== '4top.php') continue;
-              // Não mostra tops já cadastrados
               if (in_array($file, $addedBtns)) continue;
             ?>
             <option value="<?= e($file) ?>"
@@ -246,53 +242,57 @@ renderNav();
 
         <!-- Nome do Top -->
         <div class="form-group">
-          <label class="form-label">Nome do Top</label>
+          <label class="form-label" data-i18n="admin_top_name_label">Nome do Top</label>
           <input type="text" name="top_name" id="topNameInput" class="form-control"
+            data-i18n-placeholder="admin_top_name_ph"
             placeholder="ex: L2JBrasil" required>
         </div>
 
         <!-- ID do Servidor -->
         <div class="form-group">
-          <label class="form-label">ID do Servidor no Top</label>
+          <label class="form-label" data-i18n="admin_top_id_label">ID do Servidor no Top</label>
           <input type="text" name="top_id" id="topIdInput" class="form-control"
+            data-i18n-placeholder="admin_top_id_ph"
             placeholder="ex: 12345 (veja no painel do site de votação)" required>
           <div id="topSiteHint" style="font-size:.7rem;color:var(--text-dim);margin-top:.3rem;display:none">
-            ℹ Encontre seu ID em: <a id="topSiteHintUrl" href="#" target="_blank" rel="noopener" style="color:var(--gold-dim)"></a>
+            <span data-i18n="admin_site_hint">ℹ Encontre seu ID em:</span> <a id="topSiteHintUrl" href="#" target="_blank" rel="noopener" style="color:var(--gold-dim)"></a>
           </div>
         </div>
 
-        <!-- Token — só aparece para tops que exigem -->
+        <!-- Token -->
         <div class="form-group" id="tokenGroup" style="display:none">
-          <label class="form-label">Token / API Key
-            <span style="color:var(--text-dim);font-size:.7em">(obrigatório para este top)</span>
+          <label class="form-label">
+            <span data-i18n="admin_token_label">Token / API Key</span>
+            <span style="color:var(--text-dim);font-size:.7em" data-i18n="admin_token_req">(obrigatório para este top)</span>
           </label>
           <input type="text" name="top_token" id="topTokenInput" class="form-control"
+            data-i18n-placeholder="admin_token_ph"
             placeholder="Cole o token gerado no painel do site de votação">
         </div>
 
-        <div class="alert alert-info" style="font-size:.75rem;margin-bottom:1rem">
+        <div class="alert alert-info" style="font-size:.75rem;margin-bottom:1rem" data-i18n="admin_url_auto_info">
           ℹ As URLs de votação são geradas automaticamente. A ordem é definida automaticamente (4TOP sempre em 1º).
         </div>
 
-        <button type="submit" class="btn btn-primary btn-full">✓ Adicionar Top</button>
+        <button type="submit" class="btn btn-primary btn-full" data-i18n="admin_btn_add_top">✓ Adicionar Top</button>
       </form>
     </div>
 
     <!-- ── Tops List ── -->
     <div class="card">
-      <div class="card-title">🏆 Tops Cadastrados (<?= count($tops) ?>)</div>
+      <div class="card-title">🏆 <span data-i18n="admin_tops_list_title">Tops Cadastrados</span> (<?= count($tops) ?>)</div>
 
       <?php if (empty($tops)): ?>
-      <p style="font-size:.85rem;color:var(--text-dim)">Nenhum top cadastrado ainda.</p>
+      <p style="font-size:.85rem;color:var(--text-dim)" data-i18n="admin_no_tops">Nenhum top cadastrado ainda.</p>
       <?php else: ?>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Nome</th>
-              <th>ID</th>
-              <th>Status</th>
-              <th style="text-align:right">Ações</th>
+              <th data-i18n="col_name">Nome</th>
+              <th data-i18n="col_id">ID</th>
+              <th data-i18n="col_status">Status</th>
+              <th style="text-align:right" data-i18n="col_actions">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -310,27 +310,31 @@ renderNav();
               </td>
               <td><code style="font-size:.78rem;color:var(--gold-dim)"><?= e($top['top_id']) ?></code></td>
               <td>
-                <span class="badge <?= $top['enabled'] ? 'badge-success' : 'badge-danger' ?>">
+                <span class="badge <?= $top['enabled'] ? 'badge-success' : 'badge-danger' ?>"
+                  data-i18n="<?= $top['enabled'] ? 'badge_active' : 'badge_inactive' ?>">
                   <?= $top['enabled'] ? 'Ativo' : 'Inativo' ?>
                 </span>
               </td>
               <td style="text-align:right">
                 <div style="display:flex;gap:.3rem;justify-content:flex-end">
                   <?php if (($top['top_btn'] ?? '') === '4top.php'): ?>
-                  <button class="btn btn-ghost btn-sm" disabled title="O 4TOP não pode ser desativado"
+                  <button class="btn btn-ghost btn-sm" disabled
+                    data-i18n-title="title_4top_no_disable"
+                    title="O 4TOP não pode ser desativado"
                     style="opacity:.35;cursor:not-allowed">⏸</button>
                   <?php else: ?>
                   <form method="POST" style="display:inline">
                     <input type="hidden" name="action" value="toggle_top">
                     <input type="hidden" name="id" value="<?= (int)$top['id'] ?>">
                     <button class="btn btn-ghost btn-sm" type="submit"
+                      data-i18n-title="<?= $top['enabled'] ? 'title_disable' : 'title_enable' ?>"
                       title="<?= $top['enabled'] ? 'Desativar' : 'Ativar' ?>">
                       <?= $top['enabled'] ? '⏸' : '▶' ?>
                     </button>
                   </form>
                   <?php endif; ?>
                   <form method="POST" style="display:inline"
-                    onsubmit="return confirm('Remover este top?')">
+                    onsubmit="return confirm(window.vsI18n ? window.vsI18n.t('confirm_remove_top') : 'Remover este top?')">
                     <input type="hidden" name="action" value="remove_top">
                     <input type="hidden" name="id" value="<?= (int)$top['id'] ?>">
                     <button class="btn btn-danger btn-sm" type="submit" title="Remover">🗑</button>
@@ -347,9 +351,9 @@ renderNav();
 
     <!-- ── Add Rewards ── -->
     <div class="card">
-      <div class="card-title">🎁 Configurar Rewards por Voto</div>
+      <div class="card-title" data-i18n="admin_reward_cfg_title">🎁 Configurar Rewards por Voto</div>
 
-      <p style="font-size:.82rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.5">
+      <p style="font-size:.82rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.5" data-i18n="admin_reward_cfg_desc">
         Adicione os itens que serão entregues ao jogador a cada voto.
         Você pode adicionar múltiplos itens de uma vez.
       </p>
@@ -360,26 +364,28 @@ renderNav();
         <div id="rewards-container">
           <div class="reward-row">
             <div>
-              <label class="form-label">Item ID</label>
+              <label class="form-label" data-i18n="admin_reward_item_id">Item ID</label>
               <input type="number" name="item_id[]" class="form-control" placeholder="ex: 57" min="1" required>
             </div>
             <div>
-              <label class="form-label">Quantidade</label>
+              <label class="form-label" data-i18n="admin_reward_qty">Quantidade</label>
               <input type="number" name="quantity[]" class="form-control" placeholder="1" min="1" value="1" required>
             </div>
             <div style="display:flex;align-items:flex-end">
-              <button type="button" class="btn-icon" onclick="addRewardRow()" title="Adicionar mais">＋</button>
+              <button type="button" class="btn-icon" onclick="addRewardRow()"
+                data-i18n-title="admin_btn_add_more" title="Adicionar mais">＋</button>
             </div>
           </div>
         </div>
 
         <div class="form-group" style="margin-top:.75rem">
-          <label class="form-label">Nome (Ex: "Adena")</label>
+          <label class="form-label" data-i18n="admin_reward_name_lbl">Nome (Ex: "Adena")</label>
           <input type="text" name="description[]" id="firstDesc" class="form-control"
+            data-i18n-placeholder="admin_reward_name_ph"
             placeholder="Nome do item para exibição">
         </div>
 
-        <button type="submit" class="btn btn-primary btn-full" style="margin-top:1rem">
+        <button type="submit" class="btn btn-primary btn-full" style="margin-top:1rem" data-i18n="admin_btn_save_rewards">
           ✓ Salvar Rewards
         </button>
       </form>
@@ -387,18 +393,18 @@ renderNav();
 
     <!-- ── Rewards List ── -->
     <div class="card">
-      <div class="card-title">📦 Rewards Configurados (<?= count($rewards) ?>)</div>
+      <div class="card-title">📦 <span data-i18n="admin_rewards_list_title">Rewards Configurados</span> (<?= count($rewards) ?>)</div>
 
       <?php if (empty($rewards)): ?>
-      <p style="font-size:.85rem;color:var(--text-dim)">Nenhum reward configurado.</p>
+      <p style="font-size:.85rem;color:var(--text-dim)" data-i18n="admin_no_rewards">Nenhum reward configurado.</p>
       <?php else: ?>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Item ID</th>
-              <th>Qtd</th>
-              <th>Nome</th>
+              <th data-i18n="admin_reward_item_id">Item ID</th>
+              <th data-i18n="col_qty">Qtd</th>
+              <th data-i18n="col_item_name">Nome</th>
               <th></th>
             </tr>
           </thead>
@@ -409,7 +415,8 @@ renderNav();
               <td style="color:var(--text-primary)">×<?= (int)$r['quantity'] ?></td>
               <td style="color:var(--text-dim)"><?= $r['description'] ? e($r['description']) : '—' ?></td>
               <td>
-                <form method="POST" onsubmit="return confirm('Remover este reward?')">
+                <form method="POST"
+                  onsubmit="return confirm(window.vsI18n ? window.vsI18n.t('confirm_remove_reward') : 'Remover este reward?')">
                   <input type="hidden" name="action" value="remove_reward">
                   <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
                   <button class="btn btn-danger btn-sm" type="submit">🗑</button>
@@ -420,9 +427,11 @@ renderNav();
           </tbody>
         </table>
       </div>
-      <form method="POST" onsubmit="return confirm('Remover TODOS os rewards?')" style="margin-top:1rem">
+      <form method="POST"
+        onsubmit="return confirm(window.vsI18n ? window.vsI18n.t('confirm_clear_rewards') : 'Remover TODOS os rewards?')"
+        style="margin-top:1rem">
         <input type="hidden" name="action" value="clear_rewards">
-        <button type="submit" class="btn btn-danger btn-sm">🗑 Limpar Todos</button>
+        <button type="submit" class="btn btn-danger btn-sm" data-i18n="admin_btn_clear_rewards">🗑 Limpar Todos</button>
       </form>
       <?php endif; ?>
     </div>
@@ -432,22 +441,22 @@ renderNav();
   <!-- Vote Log -->
   <div class="card" style="margin-top:1.5rem">
     <div class="flex-between" style="margin-bottom:1rem">
-      <div class="card-title" style="margin:0">📊 Log de Votos Recentes</div>
-      <span style="font-size:.75rem;color:var(--text-dim)">Últimas 15 sessões</span>
+      <div class="card-title" style="margin:0" data-i18n="admin_log_title">📊 Log de Votos Recentes</div>
+      <span style="font-size:.75rem;color:var(--text-dim)" data-i18n="admin_log_subtitle">Últimas 15 sessões</span>
     </div>
 
     <?php if (empty($recent_log)): ?>
-    <p style="font-size:.85rem;color:var(--text-dim)">Nenhum voto registrado ainda.</p>
+    <p style="font-size:.85rem;color:var(--text-dim)" data-i18n="admin_no_log">Nenhum voto registrado ainda.</p>
     <?php else: ?>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Login</th>
-            <th>Tops Votados</th>
-            <th>IP</th>
-            <th>Data/Hora</th>
-            <th>Reward</th>
+            <th data-i18n="col_login">Login</th>
+            <th data-i18n="col_tops_voted">Tops Votados</th>
+            <th data-i18n="col_ip">IP</th>
+            <th data-i18n="col_datetime">Data/Hora</th>
+            <th data-i18n="col_reward">Reward</th>
           </tr>
         </thead>
         <tbody>
@@ -466,7 +475,8 @@ renderNav();
             <td><code style="font-size:.75rem;color:var(--text-dim)"><?= e($log['ip']) ?></code></td>
             <td style="font-size:.78rem;color:var(--text-secondary)"><?= e($log['voted_at']) ?></td>
             <td>
-              <span class="badge <?= $log['rewarded'] ? 'badge-success' : 'badge-gold' ?>">
+              <span class="badge <?= $log['rewarded'] ? 'badge-success' : 'badge-gold' ?>"
+                data-i18n="<?= $log['rewarded'] ? 'badge_delivered' : 'badge_pending' ?>">
                 <?= $log['rewarded'] ? 'Entregue' : 'Pendente' ?>
               </span>
             </td>
@@ -490,18 +500,19 @@ function addRewardRow() {
     var container = document.getElementById('rewards-container');
     var row = document.createElement('div');
     row.className = 'reward-row';
+    var t = window.vsI18n ? window.vsI18n.t : function(k){return k;};
     row.innerHTML =
         '<div>' +
-            '<label class="form-label">Item ID</label>' +
+            '<label class="form-label" data-i18n="admin_reward_item_id">' + t('admin_reward_item_id') + '</label>' +
             '<input type="number" name="item_id[]" class="form-control" placeholder="ex: 57" min="1" required>' +
         '</div>' +
         '<div>' +
-            '<label class="form-label">Quantidade</label>' +
+            '<label class="form-label" data-i18n="admin_reward_qty">' + t('admin_reward_qty') + '</label>' +
             '<input type="number" name="quantity[]" class="form-control" placeholder="1" min="1" value="1" required>' +
         '</div>' +
         '<div style="display:flex;flex-direction:column;justify-content:flex-end;gap:.3rem">' +
             '<label class="form-label" style="visibility:hidden">.</label>' +
-            '<button type="button" class="btn-icon" onclick="removeRewardRow(this)" title="Remover">✕</button>' +
+            '<button type="button" class="btn-icon" onclick="removeRewardRow(this)" title="' + t('admin_btn_remove_row') + '">✕</button>' +
         '</div>';
     container.appendChild(row);
 }

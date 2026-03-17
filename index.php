@@ -65,6 +65,8 @@ $footer     = defined('LAYOUT_FOOTER')       ? LAYOUT_FOOTER       : 'VoteSystem
   <?php endif; ?>
   <link rel="stylesheet" href="assets/css/main.css">
   <?php if (trim($extraCss)): ?><style><?= $extraCss ?></style><?php endif; ?>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="assets/js/i18n.js"></script>
   <style>
     .rune-bg { position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden; }
     .rune { position:absolute;font-size:1.5rem;opacity:0;color:rgba(201,168,76,.07);animation:floatRune 12s infinite; }
@@ -78,6 +80,14 @@ $footer     = defined('LAYOUT_FOOTER')       ? LAYOUT_FOOTER       : 'VoteSystem
 </head>
 <body>
 
+<!-- Seletor de idioma fixo (canto sup. direito) -->
+<div class="lang-switcher" id="langSwitcher" title="Language / Idioma / Язык">
+  <button class="lang-btn" data-lang="pt" title="Português (Brasil)" aria-label="Português (Brasil)">🇧🇷</button>
+  <button class="lang-btn" data-lang="es" title="Español"            aria-label="Español">🇪🇸</button>
+  <button class="lang-btn" data-lang="en" title="English (US)"       aria-label="English">🇺🇸</button>
+  <button class="lang-btn" data-lang="ru" title="Русский"            aria-label="Русский">🇷🇺</button>
+</div>
+
 <div class="rune-bg" aria-hidden="true">
 <?php
 $runes = array('ᚠ','ᚢ','ᚦ','ᚨ','ᚱ','ᚲ','ᚷ','ᚹ','ᚺ','ᚾ','ᛁ','ᛃ','ᛇ','ᛈ','ᛉ','ᛊ','ᛏ','ᛒ','ᛖ','ᛗ','ᛚ','ᛜ','ᛞ','ᛟ');
@@ -90,6 +100,8 @@ for ($i = 0; $i < 14; $i++) {
 <div style="position:relative;z-index:1;" class="login-wrap">
   <div class="login-box animate-in">
 
+    <!-- Seletor de idioma fixo no topo direito via CSS global -->
+
     <div class="login-logo">
       <div style="margin-bottom:.75rem;line-height:1">
         <img src="https://i.imgur.com/MAuPJrp.png" alt="<?= htmlspecialchars($siteName) ?>" style="height:48px;width:auto">
@@ -98,36 +110,39 @@ for ($i = 0; $i < 14; $i++) {
     </div>
 
     <?php if ($msg === 'nologin'): ?>
-    <div class="alert alert-warning">⚠ Você precisa estar logado para acessar essa página.</div>
+    <div class="alert alert-warning" data-i18n="login_nologin_warn">⚠ Você precisa estar logado para acessar essa página.</div>
     <?php endif; ?>
     <?php if ($error): ?>
-    <div class="alert alert-error">✗ <?= e($error) ?></div>
+    <div class="alert alert-error" id="loginErrorMsg">✗ <?= e($error) ?></div>
     <?php endif; ?>
 
     <div class="card">
-      <div class="card-title">🔐 Acesso do Jogador</div>
+      <div class="card-title" data-i18n="login_card_title">🔐 Acesso do Jogador</div>
 
       <form method="POST" action="index.php" id="loginForm">
         <div class="form-group">
-          <label class="form-label" for="login">Login da Conta</label>
+          <label class="form-label" for="login" data-i18n="login_account_label">Login da Conta</label>
           <input type="text" id="login" name="login" class="form-control"
             value="<?= e($_POST['login'] ?? '') ?>"
+            data-i18n-placeholder="login_ph_login"
             placeholder="seu_login" autocomplete="username" autofocus required>
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="password">Senha</label>
+          <label class="form-label" for="password" data-i18n="login_password_label">Senha</label>
           <div style="position:relative">
             <input type="password" id="password" name="password" class="form-control"
               placeholder="••••••••" autocomplete="current-password" required
               style="padding-right:2.5rem">
             <button type="button" id="togglePwd"
               style="position:absolute;right:.6rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:1rem;padding:0;line-height:1"
+              data-i18n-title="login_show_pwd"
               title="Mostrar senha">👁</button>
           </div>
         </div>
 
-        <button type="submit" class="btn btn-primary btn-full" style="margin-top:1rem" id="submitBtn">
+        <button type="submit" class="btn btn-primary btn-full" style="margin-top:1rem" id="submitBtn"
+          data-i18n="login_submit">
           ⚜ Entrar
         </button>
       </form>
@@ -135,8 +150,8 @@ for ($i = 0; $i < 14; $i++) {
 
     <div class="card" style="margin-top:1rem;padding:1rem 1.5rem;">
       <div style="font-size:.78rem;color:var(--text-dim);text-align:center;line-height:1.7">
-        Use a mesma conta e senha do servidor de jogo.<br>
-        <span style="color:var(--gold-dim)">Vote diariamente para ganhar recompensas!</span>
+        <span data-i18n="login_hint_main">Use a mesma conta e senha do servidor de jogo.</span><br>
+        <span style="color:var(--gold-dim)" data-i18n="login_hint_sub">Vote diariamente para ganhar recompensas!</span>
       </div>
     </div>
 
@@ -154,7 +169,7 @@ document.getElementById('togglePwd').addEventListener('click', function() {
 document.getElementById('loginForm').addEventListener('submit', function() {
     var b = document.getElementById('submitBtn');
     b.classList.add('loading');
-    b.innerHTML = 'Entrando...';
+    b.innerHTML = (window.vsI18n) ? window.vsI18n.t('msg_entering') : 'Entrando...';
 });
 </script>
 </body>
