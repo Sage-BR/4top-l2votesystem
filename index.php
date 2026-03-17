@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$projects     = array('acis' => 'aCis', 'l2jserver' => 'L2JServer', 'l2jmobius' => 'L2JMobius');
+$projects     = array('acis' => 'aCis', 'l2jorion' => 'L2JOrion', 'l2jmobius' => 'L2JMobius', 'l2jsunrise' => 'L2JSunrise', 'l2jlisvus' => 'L2JLisvus');
 $project_name = isset($projects[GAME_PROJECT]) ? $projects[GAME_PROJECT] : GAME_PROJECT;
 
 // Layout config
@@ -52,7 +52,6 @@ $siteName   = defined('LAYOUT_SITE_NAME')   ? LAYOUT_SITE_NAME   : 'VoteSystem';
 $siteSuffix = defined('LAYOUT_SITE_SUFFIX')  ? LAYOUT_SITE_SUFFIX  : '4Top Servers';
 $favicon    = defined('LAYOUT_FAVICON')      ? LAYOUT_FAVICON      : '';
 $extraCss   = defined('LAYOUT_EXTRA_CSS')    ? LAYOUT_EXTRA_CSS    : '';
-$brandIcon  = defined('LAYOUT_BRAND_ICON')   ? LAYOUT_BRAND_ICON   : '⚔️';
 $footer     = defined('LAYOUT_FOOTER')       ? LAYOUT_FOOTER       : 'VoteSystem <span class="text-gold">4Top Servers</span>';
 ?>
 <!DOCTYPE html>
@@ -92,8 +91,9 @@ for ($i = 0; $i < 14; $i++) {
   <div class="login-box animate-in">
 
     <div class="login-logo">
-      <div style="font-size:2.8rem;margin-bottom:.5rem;line-height:1;text-shadow:0 0 30px rgba(201,168,76,.4)"><?= $brandIcon ?></div>
-      <div class="logo-text"><?= htmlspecialchars($siteName) ?></div>
+      <div style="margin-bottom:.75rem;line-height:1">
+        <img src="https://i.imgur.com/MAuPJrp.png" alt="<?= htmlspecialchars($siteName) ?>" style="height:48px;width:auto">
+      </div>
       <div class="logo-sub"><?= htmlspecialchars($siteSuffix) ?> &mdash; <?= e($project_name) ?></div>
     </div>
 
