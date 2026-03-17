@@ -209,13 +209,13 @@ function getAvailableTops() {
 
     // Fallback estático
     return array(
-        '4top.php'        => array('name' => '4TOP',         'site' => 'top.4teambr.com',  'token' => false),
-        'hopzone.php'     => array('name' => 'Hopzone.net',  'site' => 'l2.hopzone.net',    'token' => true),
-        'hopzoneu.php'    => array('name' => 'Hopzone.eu',   'site' => 'hopzone.eu',         'token' => true),
-        'itopz.php'       => array('name' => 'iTopZ',        'site' => 'itopz.com',          'token' => true),
-        'l2jbrasil.php'   => array('name' => 'L2JBrasil',   'site' => 'top.l2jbrasil.com', 'token' => true),
-        'l2toporg.php'    => array('name' => 'L2Top.org',   'site' => 'l2top.org',          'token' => true),
-        'arenatop100.php' => array('name' => 'ArenaTop100', 'site' => 'arena-top100.com',   'token' => true),
+        '4top.php'        => array('name' => '4TOP',         'site' => 'top.4teambr.com',   'token' => false, 'register_url' => 'https://top.4teambr.com/addserver.php'),
+        'hopzone.php'     => array('name' => 'Hopzone.net',  'site' => 'l2.hopzone.net',    'token' => true,  'register_url' => 'https://l2.hopzone.net/site/addServer/1'),
+        'hopzoneu.php'    => array('name' => 'Hopzone.eu',   'site' => 'hopzone.eu',         'token' => true,  'register_url' => 'https://hopzone.eu/add-server/'),
+        'itopz.php'       => array('name' => 'iTopZ',        'site' => 'itopz.com',          'token' => true,  'register_url' => 'https://itopz.com/add'),
+        'l2jbrasil.php'   => array('name' => 'L2JBrasil',   'site' => 'top.l2jbrasil.com', 'token' => true,  'register_url' => 'https://top.l2jbrasil.com/index.php?a=add'),
+        'l2toporg.php'    => array('name' => 'L2Top.org',   'site' => 'l2top.org',          'token' => true,  'register_url' => 'https://l2top.org/add-server/'),
+        'arenatop100.php' => array('name' => 'ArenaTop100', 'site' => 'arena-top100.com',   'token' => true,  'register_url' => 'https://www.arena-top100.com/index.php?a=add'),
     );
 }
 
@@ -483,11 +483,20 @@ function claimReward($login, $objId) {
 
 function getVoteLog($limit = 50, $offset = 0) {
     $db   = getDB();
+    // Agrupa por login + ip + dia — representa uma sessão de votação real
+    // Jogador que vota em vários tops no mesmo dia aparece em uma linha só
     $stmt = $db->prepare(
-        "SELECT l.*, t.name AS top_name
+        "SELECT
+            login,
+            ip,
+            MIN(voted_at)  AS voted_at,
+            MAX(rewarded)  AS rewarded,
+            GROUP_CONCAT(t.name ORDER BY t.name SEPARATOR ', ') AS tops_voted,
+            COUNT(*)       AS total_tops
          FROM 4top_log l
          LEFT JOIN 4top_tops t ON t.id = l.top_id
-         ORDER BY l.voted_at DESC
+         GROUP BY login, ip, DATE(voted_at)
+         ORDER BY voted_at DESC
          LIMIT ? OFFSET ?"
     );
     $stmt->execute(array((int)$limit, (int)$offset));

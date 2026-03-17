@@ -16,8 +16,7 @@ define('LAYOUT_SITE_SUFFIX', '4Top Servers');      // sufixo após o —
 // Use '' para desativar.
 define('LAYOUT_FAVICON', 'assets/favicon.png');
 
-// ── Ícone e nome no navbar ────────────────────────────────────────────
-define('LAYOUT_BRAND_ICON', '⚔');
+// ── nome no navbar ────────────────────────────────────────────
 define('LAYOUT_BRAND_URL',  'vote.php');
 
 // ── Rodapé ────────────────────────────────────────────────────────────

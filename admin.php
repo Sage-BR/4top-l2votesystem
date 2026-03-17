@@ -257,7 +257,7 @@ renderNav();
           <input type="text" name="top_id" id="topIdInput" class="form-control"
             placeholder="ex: 12345 (veja no painel do site de votação)" required>
           <div id="topSiteHint" style="font-size:.7rem;color:var(--text-dim);margin-top:.3rem;display:none">
-            ℹ Encontre seu ID em: <span id="topSiteHintUrl" style="color:var(--gold-dim)"></span>
+            ℹ Encontre seu ID em: <a id="topSiteHintUrl" href="#" target="_blank" rel="noopener" style="color:var(--gold-dim)"></a>
           </div>
         </div>
 
@@ -433,7 +433,7 @@ renderNav();
   <div class="card" style="margin-top:1.5rem">
     <div class="flex-between" style="margin-bottom:1rem">
       <div class="card-title" style="margin:0">📊 Log de Votos Recentes</div>
-      <span style="font-size:.75rem;color:var(--text-dim)">Últimos 15 registros</span>
+      <span style="font-size:.75rem;color:var(--text-dim)">Últimas 15 sessões</span>
     </div>
 
     <?php if (empty($recent_log)): ?>
@@ -443,9 +443,8 @@ renderNav();
       <table>
         <thead>
           <tr>
-            <th>#</th>
             <th>Login</th>
-            <th>Top</th>
+            <th>Tops Votados</th>
             <th>IP</th>
             <th>Data/Hora</th>
             <th>Reward</th>
@@ -454,9 +453,16 @@ renderNav();
         <tbody>
           <?php foreach ($recent_log as $log): ?>
           <tr>
-            <td style="color:var(--text-dim)"><?= (int)$log['id'] ?></td>
             <td style="color:var(--gold-light)"><?= e($log['login']) ?></td>
-            <td><?= e($log['top_name'] ?? '—') ?></td>
+            <td>
+              <?php foreach (explode(', ', $log['tops_voted'] ?? '') as $t): ?>
+              <span style="display:inline-block;background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.3);
+                border-radius:4px;padding:1px 6px;font-size:.72rem;margin:1px 2px;color:var(--gold-light)">
+                <?= e(trim($t)) ?>
+              </span>
+              <?php endforeach; ?>
+              <span style="font-size:.7rem;color:var(--text-dim);margin-left:2px">(<?= (int)$log['total_tops'] ?>)</span>
+            </td>
             <td><code style="font-size:.75rem;color:var(--text-dim)"><?= e($log['ip']) ?></code></td>
             <td style="font-size:.78rem;color:var(--text-secondary)"><?= e($log['voted_at']) ?></td>
             <td>
@@ -533,7 +539,9 @@ function onTopChange(sel) {
     var hint    = document.getElementById('topSiteHint');
     var hintUrl = document.getElementById('topSiteHintUrl');
     if (site) {
+        var fullUrl = site.startsWith('http') ? site : 'https://' + site;
         hintUrl.textContent = site;
+        hintUrl.href        = fullUrl;
         hint.style.display  = '';
     } else {
         hint.style.display = 'none';
