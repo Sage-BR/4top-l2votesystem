@@ -105,10 +105,10 @@ function renderNav() {
         .         'padding:5px 7px;'
         .         'backdrop-filter:blur(14px);'
         .         'box-shadow:0 4px 20px rgba(0,0,0,0.5),0 0 0 1px rgba(201,168,76,0.06);">';
-    echo '<button class="lang-btn" data-lang="pt" title="Português (Brasil)" aria-label="Português (Brasil)">🇧🇷</button>';
-    echo '<button class="lang-btn" data-lang="es" title="Español"            aria-label="Español">🇪🇸</button>';
-    echo '<button class="lang-btn" data-lang="en" title="English (US)"       aria-label="English">🇺🇸</button>';
-    echo '<button class="lang-btn" data-lang="ru" title="Русский"            aria-label="Русский">🇷🇺</button>';
+    echo '<button class="lang-btn" data-lang="pt" title="Português (Brasil)" aria-label="Português (Brasil)"><img src="https://flagcdn.com/br.svg" width="24" height="18" alt="BR" loading="lazy"></button>';
+    echo '<button class="lang-btn" data-lang="es" title="Español"            aria-label="Español"><img src="https://flagcdn.com/es.svg" width="24" height="18" alt="ES" loading="lazy"></button>';
+    echo '<button class="lang-btn" data-lang="en" title="English (US)"       aria-label="English"><img src="https://flagcdn.com/us.svg" width="24" height="18" alt="EN" loading="lazy"></button>';
+    echo '<button class="lang-btn" data-lang="ru" title="Русский"            aria-label="Русский"><img src="https://flagcdn.com/ru.svg" width="24" height="18" alt="RU" loading="lazy"></button>';
     echo '</div>';
 }
 

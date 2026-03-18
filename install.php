@@ -189,10 +189,10 @@ $tables_base = array(
             border-radius:8px;padding:5px 7px;
             backdrop-filter:blur(14px);
             box-shadow:0 4px 20px rgba(0,0,0,0.5)">
-  <button class="lang-btn" data-lang="pt" title="Português (Brasil)" aria-label="Português (Brasil)">🇧🇷</button>
-  <button class="lang-btn" data-lang="es" title="Español"            aria-label="Español">🇪🇸</button>
-  <button class="lang-btn" data-lang="en" title="English (US)"       aria-label="English">🇺🇸</button>
-  <button class="lang-btn" data-lang="ru" title="Русский"            aria-label="Русский">🇷🇺</button>
+  <button class="lang-btn" data-lang="pt" title="Português (Brasil)" aria-label="Português (Brasil)"><img src="https://flagcdn.com/br.svg" width="24" height="18" alt="BR" loading="lazy"></button>
+  <button class="lang-btn" data-lang="es" title="Español"            aria-label="Español"><img src="https://flagcdn.com/es.svg" width="24" height="18" alt="ES" loading="lazy"></button>
+  <button class="lang-btn" data-lang="en" title="English (US)"       aria-label="English"><img src="https://flagcdn.com/us.svg" width="24" height="18" alt="EN" loading="lazy"></button>
+  <button class="lang-btn" data-lang="ru" title="Русский"            aria-label="Русский"><img src="https://flagcdn.com/ru.svg" width="24" height="18" alt="RU" loading="lazy"></button>
 </div>
 
 <div class="wizard-wrap">
