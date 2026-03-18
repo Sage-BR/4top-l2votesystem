@@ -19,22 +19,22 @@ $error   = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
-    // ── Add Top ──
     if ($action === 'add_top') {
         $name    = trim($_POST['top_name'] ?? '');
         $top_id  = trim($_POST['top_id'] ?? '');
         $token   = trim($_POST['top_token'] ?? '');
         $top_btn = basename(trim($_POST['top_btn'] ?? ''));
 
-        // Gera URL estática do top com base no arquivo selecionado + server ID
         $url_templates = array(
-            'l2jbrasil.php' => 'https://top.l2jbrasil.com/index.php?a=in&s={SERVER_ID}',
-            '4top.php'      => 'https://top.4teambr.com/index.php?a=in&s={SERVER_ID}',
-            'hopzone.php'   => 'https://hopzone.net/lineage2/vote/{SERVER_ID}',
-            'hopzoneu.php'  => 'https://hopzone.eu/server/{SERVER_ID}',
-            'itopz.php'     => 'https://itopz.com/vote/{SERVER_ID}',
-            'l2toporg.php'  => 'https://l2top.org/server/{SERVER_ID}/',
-            'l2votes.php'   => 'https://www.l2votes.com/server/{SERVER_ID}/',
+            'l2jbrasil.php'  => 'https://top.l2jbrasil.com/index.php?a=in&s={SERVER_ID}',
+            '4top.php'       => 'https://top.4teambr.com/index.php?a=in&s={SERVER_ID}',
+            'hopzone.php'    => 'https://hopzone.net/lineage2/vote/{SERVER_ID}',
+            'hopzoneu.php'   => 'https://hopzone.eu/server/{SERVER_ID}',
+            'itopz.php'      => 'https://itopz.com/vote/{SERVER_ID}',
+            'l2toporg.php'   => 'https://l2top.org/server/{SERVER_ID}/',
+            'hotservers.php' => 'https://www.hotservers.org/servers/{SERVER_ID}/vote',
+            'l2rankzone.php' => 'https://l2rankzone.com/lineage2-servers/{SERVER_ID}/vote',
+            'l2votes.php'    => 'https://www.l2votes.com/server/{SERVER_ID}/',
         );
 
         if (empty($name) || empty($top_id) || empty($top_btn)) {
@@ -46,10 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ? str_replace('{SERVER_ID}', rawurlencode($top_id), $url_templates[$top_btn])
                 : '';
 
-            // sort_order: 4TOP sempre 0; demais pegam o próximo após o máximo atual
             if ($top_btn === '4top.php') {
                 $sort_order = 0;
-                // Empurra todos os outros para cima
                 $db->exec("UPDATE 4top_tops SET sort_order = sort_order + 1 WHERE top_btn <> '4top.php'");
             } else {
                 $row = $db->query("SELECT COALESCE(MAX(sort_order), 0) FROM 4top_tops")->fetchColumn();
@@ -65,7 +63,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // ── Remove Top ──
     elseif ($action === 'remove_top') {
         $id = (int)($_POST['id'] ?? 0);
         if ($id > 0) {
@@ -75,11 +72,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // ── Toggle Top enabled ──
     elseif ($action === 'toggle_top') {
         $id = (int)($_POST['id'] ?? 0);
         if ($id > 0) {
-            // 4TOP não pode ser desativado
             $chk = $db->prepare("SELECT top_btn FROM 4top_tops WHERE id = ? LIMIT 1");
             $chk->execute(array($id));
             $row = $chk->fetch();
@@ -93,11 +88,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // ── Add Reward item ──
     elseif ($action === 'add_reward') {
-        $item_ids  = $_POST['item_id'] ?? array();
-        $quantities= $_POST['quantity'] ?? array();
-        $descs     = $_POST['description'] ?? array();
+        $item_ids   = $_POST['item_id']     ?? array();
+        $quantities = $_POST['quantity']    ?? array();
+        $descs      = $_POST['description'] ?? array();
 
         if (!is_array($item_ids)) $item_ids = array($item_ids);
 
@@ -118,7 +112,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         else $error = 'Preencha pelo menos um Item ID válido.';
     }
 
-    // ── Remove Reward ──
     elseif ($action === 'remove_reward') {
         $id = (int)($_POST['id'] ?? 0);
         if ($id > 0) {
@@ -128,7 +121,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // ── Clear all rewards ──
     elseif ($action === 'clear_rewards') {
         $db->exec("DELETE FROM 4top_rewards");
         $success = 'Todos os rewards foram removidos.';
@@ -137,18 +129,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $tops    = getAllTops();
 $rewards = getRewards();
-
-// Verifica se o 4TOP está cadastrado
 $has4top = has4Top();
 
-// Vote log stats
 $stmt = $db->query("SELECT COUNT(*) FROM 4top_log");
 $total_votes = (int)$stmt->fetchColumn();
 
 $stmt = $db->query("SELECT COUNT(*) FROM 4top_log WHERE voted_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)");
 $votes_today = (int)$stmt->fetchColumn();
-
-$pending_rewards = 0;
 
 $recent_log = getVoteLog(15);
 
@@ -165,7 +152,6 @@ renderNav();
     <div class="divider"><span>✦</span></div>
   </div>
 
-  <!-- Stats -->
   <div class="stats-row">
     <div class="stat-card">
       <div class="stat-value"><?= $total_votes ?></div>
@@ -179,7 +165,6 @@ renderNav();
       <div class="stat-value"><?= count($tops) ?></div>
       <div class="stat-label" data-i18n="admin_stat_tops">Tops Cadastrados</div>
     </div>
-
   </div>
 
   <?php if ($success): ?>
@@ -206,7 +191,6 @@ renderNav();
       <form method="POST" action="admin.php" id="addTopForm">
         <input type="hidden" name="action" value="add_top">
 
-        <!-- Seleção do Top -->
         <div class="form-group">
           <label class="form-label" data-i18n="admin_top_sel_label">Site de Votação</label>
           <?php if (empty($availableTops)): ?>
@@ -240,7 +224,6 @@ renderNav();
           <?php endif; ?>
         </div>
 
-        <!-- Nome do Top -->
         <div class="form-group">
           <label class="form-label" data-i18n="admin_top_name_label">Nome do Top</label>
           <input type="text" name="top_name" id="topNameInput" class="form-control"
@@ -248,7 +231,6 @@ renderNav();
             placeholder="ex: L2JBrasil" required>
         </div>
 
-        <!-- ID do Servidor -->
         <div class="form-group">
           <label class="form-label" data-i18n="admin_top_id_label">ID do Servidor no Top</label>
           <input type="text" name="top_id" id="topIdInput" class="form-control"
@@ -259,7 +241,6 @@ renderNav();
           </div>
         </div>
 
-        <!-- Token -->
         <div class="form-group" id="tokenGroup" style="display:none">
           <label class="form-label">
             <span data-i18n="admin_token_label">Token / API Key</span>
@@ -500,7 +481,7 @@ function addRewardRow() {
     var container = document.getElementById('rewards-container');
     var row = document.createElement('div');
     row.className = 'reward-row';
-    var t = window.vsI18n ? window.vsI18n.t : function(k){return k;};
+    var t = window.vsI18n ? window.vsI18n.t : function(k){ return k; };
     row.innerHTML =
         '<div>' +
             '<label class="form-label" data-i18n="admin_reward_item_id">' + t('admin_reward_item_id') + '</label>' +
@@ -522,8 +503,7 @@ function removeRewardRow(btn) {
     if (row) row.remove();
 }
 
-// ── Top selector ─────────────────────────────────────────────────────────────
-var _topNames = []; // guarda todos os nomes dos tops para detectar edição manual
+var _topNames = [];
 
 function onTopChange(sel) {
     var opt        = sel.options[sel.selectedIndex];
@@ -531,22 +511,14 @@ function onTopChange(sel) {
     var site       = opt.getAttribute('data-site')  || '';
     var name       = opt.getAttribute('data-name')  || '';
 
-    // Mostra/esconde campo token
     document.getElementById('tokenGroup').style.display = needsToken ? '' : 'none';
-    if (!needsToken) {
-        document.getElementById('topTokenInput').value = '';
-    }
+    if (!needsToken) document.getElementById('topTokenInput').value = '';
 
-    // Atualiza nome sempre que o top mudar
-    // (só preserva se o usuário tiver digitado algo manualmente diferente de todos os tops)
     var nameInput    = document.getElementById('topNameInput');
     var currentValue = nameInput.value.trim();
     var isAutoValue  = !currentValue || _topNames.indexOf(currentValue) !== -1;
-    if (name && isAutoValue) {
-        nameInput.value = name;
-    }
+    if (name && isAutoValue) nameInput.value = name;
 
-    // Hint do site
     var hint    = document.getElementById('topSiteHint');
     var hintUrl = document.getElementById('topSiteHintUrl');
     if (site) {
@@ -559,7 +531,6 @@ function onTopChange(sel) {
     }
 }
 
-// Coleta todos os nomes dos tops para o controle de edição manual
 document.addEventListener('DOMContentLoaded', function() {
     var opts = document.querySelectorAll('#topBtnSelect option[data-name]');
     for (var i = 0; i < opts.length; i++) {

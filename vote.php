@@ -23,12 +23,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
 
-    if ($_POST['action'] === 'confirm_l2jbrasil') {
-        $browserToken = isset($_POST['token']) ? trim($_POST['token']) : '';
-        echo json_encode(confirmL2JBrasil($login, $ip, $browserToken));
-        exit;
-    }
-
     if ($_POST['action'] === 'claim_reward') {
         $objId = (int)(isset($_POST['obj_id']) ? $_POST['obj_id'] : 0);
         if ($objId <= 0) {
@@ -72,7 +66,6 @@ foreach ($tops as $top) {
     }
 
     // 2) Se a API disse "pode votar", verifica o DB pelo login (ignora IP)
-    //    Isso cobre: IP diferente, API bloqueada (CF), top sem API de check
     if ($can_vote) {
         $dbVote = getLastVote($login, $top['id']);
         if ($dbVote && (int)$dbVote['seconds_ago'] < 43200) {
@@ -317,28 +310,6 @@ function populateChars(chars) {
     }
 }
 
-function checkL2JBrasilBrowser(serverId, playerToken, onVoted, onFail) {
-    var url = 'https://top.l2jbrasil.com/votesystem/'
-            + '?type=json'
-            + '&player_id=' + encodeURIComponent(playerToken)
-            + '&username='  + encodeURIComponent(serverId)
-            + '&hours=12';
-
-    fetch(url)
-        .then(function(r) {
-            if (!r.ok) { onFail('HTTP ' + r.status); return; }
-            return r.json();
-        })
-        .then(function(data) {
-            if (!data || !data.vote) { onFail('Resposta inválida'); return; }
-            var vote  = data.vote;
-            var hours = parseFloat(vote.hours_since_vote);
-            var voted = (String(vote.status) === '1' && hours >= 0 && hours < 12);
-            if (voted) { onVoted(); } else { onFail('Não votou no L2JBrasil (hours=' + hours + ')'); }
-        })
-        .catch(function(e) { onFail(String(e)); });
-}
-
 function showToast(msg, type) {
     var el = document.getElementById('toastEl');
     if (!el) return;
@@ -354,12 +325,10 @@ function showToast(msg, type) {
     setTimeout(function() { el.style.transform = 'translateY(100px)'; el.style.opacity = '0'; }, 3500);
 }
 
-/* Retorna texto traduzido; usa vsI18n se disponível, senão fallback PT */
 function _t(key) {
     return (window.vsI18n) ? window.vsI18n.t(key) : key;
 }
 
-/* Traduz mensagem de resposta do servidor */
 function _tm(res) {
     return (window.vsI18n) ? window.vsI18n.translateMsg(res) : (res.msg || '');
 }
@@ -374,38 +343,6 @@ function doCheckVotes(btn) {
             document.getElementById('stepCheck').style.display = 'none';
             document.getElementById('stepClaim').style.display = 'block';
             showToast(_tm(res) || _t('msg_all_confirmed'), 'ok');
-        } else if (res.status === 'needs_l2jbrasil') {
-            btn.textContent = '⏳ Verificando L2JBrasil...';
-            var l2 = res.l2jbrasil;
-            checkL2JBrasilBrowser(l2.server_id, l2.token,
-                function() {
-                    btn.textContent = _t('msg_confirming');
-                    var fd2 = new FormData();
-                    fd2.append('action', 'confirm_l2jbrasil');
-                    fd2.append('token',  l2.signed_token);
-                    ajax('vote.php', fd2, function(res2) {
-                        if (res2.status === 'ok') {
-                            populateChars(res2.chars);
-                            document.getElementById('stepCheck').style.display = 'none';
-                            document.getElementById('stepClaim').style.display = 'block';
-                            showToast(_tm(res2) || _t('msg_all_confirmed'), 'ok');
-                        } else {
-                            showToast(_tm(res2) || _t('msg_connect_error'), 'error');
-                            btn.disabled = false; btn.style.opacity = '1';
-                            btn.textContent = _t('btn_check_votes');
-                        }
-                    }, function() {
-                        showToast(_t('msg_connect_error'), 'error');
-                        btn.disabled = false; btn.style.opacity = '1';
-                        btn.textContent = _t('btn_check_votes');
-                    });
-                },
-                function(reason) {
-                    showToast('⚠ L2JBrasil: ' + reason, 'info');
-                    btn.disabled = false; btn.style.opacity = '1';
-                    btn.textContent = _t('btn_check_votes');
-                }
-            );
         } else if (res.status === 'cooldown') {
             showToast(_tm(res) || _t('msg_cooldown'), 'cooldown');
             btn.disabled = false; btn.style.opacity = '1';

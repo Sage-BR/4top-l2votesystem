@@ -28,6 +28,8 @@ function getTopKey($btn) {
         'itopz.php'       => 'itopz',
         'l2toporg.php'    => 'l2toporg',
         'arenatop100.php' => 'arenatop100',
+        'hotservers.php'  => 'hotservers',
+        'l2rankzone.php'  => 'l2rankzone',
     );
     return isset($map[$btn]) ? $map[$btn] : null;
 }
@@ -216,6 +218,8 @@ function getAvailableTops() {
         'l2jbrasil.php'   => array('name' => 'L2JBrasil',   'site' => 'top.l2jbrasil.com', 'token' => true,  'register_url' => 'https://top.l2jbrasil.com/index.php?a=add'),
         'l2toporg.php'    => array('name' => 'L2Top.org',   'site' => 'l2top.org',          'token' => true,  'register_url' => 'https://l2top.org/add-server/'),
         'arenatop100.php' => array('name' => 'ArenaTop100', 'site' => 'arena-top100.com',   'token' => true,  'register_url' => 'https://www.arena-top100.com/index.php?a=add'),
+        'hotservers.php'  => array('name' => 'HotServers',  'site' => 'hotservers.org',       'token' => true,  'register_url' => 'https://www.hotservers.org/servers/add'),
+        'l2rankzone.php'  => array('name' => 'L2RankZone',  'site' => 'l2rankzone.com',        'token' => true,  'register_url' => 'https://l2rankzone.com/dashboard'),
     );
 }
 
