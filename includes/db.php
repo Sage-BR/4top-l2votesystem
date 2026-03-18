@@ -5,9 +5,7 @@
  */
 function getDB() {
     static $pdo = null;
-
     if ($pdo !== null) return $pdo;
-
     try {
         $pdo = new PDO(
             "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
@@ -22,11 +20,15 @@ function getDB() {
             )
         );
     } catch (PDOException $e) {
-        // Não expõe credenciais ou detalhes internos ao output
         error_log('[VoteSystem] DB connection failed: ' . $e->getMessage());
         http_response_code(503);
-        exit('Service temporarily unavailable.');
+        // ── DEV: mostra o detalhe do erro ─────────────────────────────────────
+        // Remova o "detail" antes de ir para produção
+        echo json_encode(array(
+            'error'   => true,
+            'message' => 'Service temporarily unavailable.',
+        ));
+        exit;
     }
-
     return $pdo;
 }
