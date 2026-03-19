@@ -4,7 +4,7 @@
  * Compatible: PHP 5.4 ~ 8.2
  */
 
-if (!file_exists(__DIR__ . '/config.php')) { header('Location: install.php'); exit; }
+if (!file_exists(__DIR__ . '/.installed')) { header('Location: install.php'); exit; }
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/bootstrap.php';
@@ -26,15 +26,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $top_btn = basename(trim($_POST['top_btn'] ?? ''));
 
         $url_templates = array(
-            'l2jbrasil.php'  => 'https://top.l2jbrasil.com/index.php?a=in&s={SERVER_ID}',
-            '4top.php'       => 'https://top.4teambr.com/index.php?a=in&s={SERVER_ID}',
-            'hopzone.php'    => 'https://hopzone.net/lineage2/vote/{SERVER_ID}',
-            'hopzoneu.php'   => 'https://hopzone.eu/server/{SERVER_ID}',
-            'itopz.php'      => 'https://itopz.com/vote/{SERVER_ID}',
-            'l2toporg.php'   => 'https://l2top.org/server/{SERVER_ID}/',
-            'hotservers.php' => 'https://www.hotservers.org/servers/{SERVER_ID}/vote',
-            'l2rankzone.php' => 'https://l2rankzone.com/lineage2-servers/{SERVER_ID}/vote',
-            'l2votes.php'    => 'https://www.l2votes.com/server/{SERVER_ID}/',
+            'l2jbrasil.php'   => 'https://top.l2jbrasil.com/index.php?a=in&s={SERVER_ID}',
+            '4top.php'        => 'https://top.4teambr.com/index.php?a=in&s={SERVER_ID}',
+            'hopzone.php'     => 'https://hopzone.net/lineage2/vote/{SERVER_ID}',
+            'hopzoneu.php'    => 'https://hopzone.eu/server/{SERVER_ID}',
+            'itopz.php'       => 'https://itopz.com/vote/{SERVER_ID}',
+            'l2toporg.php'    => 'https://l2top.org/server/{SERVER_ID}/',
+            'hotservers.php'  => 'https://www.hotservers.org/servers/{SERVER_ID}/vote',
+            'l2rankzone.php'  => 'https://l2rankzone.com/lineage2-servers/{SERVER_ID}/vote',
+            'l2votes.php'     => 'https://www.l2votes.com/server/{SERVER_ID}/',
+            'gamestop200.php' => 'https://www.gamestop200.com/details/{SERVER_ID}/vote',
         );
 
         if (empty($name) || empty($top_id) || empty($top_btn)) {

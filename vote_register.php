@@ -9,7 +9,7 @@
  * Compatível: PHP 5.6 ~ 8.2
  */
 
-if (!file_exists(__DIR__ . '/config.php')) { http_response_code(404); exit; }
+if (!file_exists(__DIR__ . '/.installed')) { http_response_code(404); exit; }
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/core.php';

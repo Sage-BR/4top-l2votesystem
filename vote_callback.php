@@ -11,7 +11,7 @@
  * Compatível: PHP 5.6 ~ 8.2
  */
 
-if (!file_exists(__DIR__ . '/config.php')) { http_response_code(404); exit; }
+if (!file_exists(__DIR__ . '/.installed')) { http_response_code(404); exit; }
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/core.php';
@@ -95,10 +95,11 @@ function handleArenaTop100() {
     }
 
     // Valida o secret contra o token cadastrado no banco
-    // Em desenvolvimento o ArenaTop100 manda secret=TEST — aceita para facilitar testes
-    $tokenOk = ($secret === 'TEST')
-        || empty($top['token'])
-        || hash_equals((string)$top['token'], $secret);
+    // token vazio no banco = top não configurado corretamente = rejeita
+    $tokenOk = isset($top['token'])
+        && is_string($top['token'])
+        && $top['token'] !== ''
+        && hash_equals((string)$top['token'], (string)$secret);
 
     if (!$tokenOk) {
         @file_put_contents(__DIR__ . '/vote_callback.log',

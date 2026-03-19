@@ -4,9 +4,31 @@
  * Compatible: PHP 5.4 ~ 8.2
  */
 
-if (!file_exists(__DIR__ . '/config.php')) {
+// Migração: se config.php existe mas .installed não, cria o marker automaticamente
+// Compatibilidade com instalações feitas antes dessa versão
+if (!file_exists(__DIR__ . '/.installed') && file_exists(__DIR__ . '/config.php')) {
+    @file_put_contents(__DIR__ . '/.installed', date('Y-m-d H:i:s') . ' | migrated from config.php' . "
+");
+}
+
+if (!file_exists(__DIR__ . '/.installed')) {
     header('Location: install.php');
     exit;
+}
+
+// Segurança: se install.php ainda existir após instalação, bloqueia e força remoção
+if (file_exists(__DIR__ . '/install.php')) {
+    @unlink(__DIR__ . '/install.php');
+    if (file_exists(__DIR__ . '/install.php')) {
+        die(
+            '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Segurança</title></head>'
+            . '<body style="font-family:sans-serif;text-align:center;padding:4rem">'
+            . '<h2 style="color:#c00">🔒 Ação Necessária</h2>'
+            . '<p>O sistema está instalado mas <code>install.php</code> ainda existe.</p>'
+            . '<p><strong>Remova o arquivo <code>install.php</code> do servidor imediatamente.</strong></p>'
+            . '</body></html>'
+        );
+    }
 }
 
 require_once __DIR__ . '/config.php';
@@ -104,9 +126,8 @@ for ($i = 0; $i < 14; $i++) {
 
     <div class="login-logo">
       <div style="margin-bottom:.75rem;line-height:1">
-        <img src="https://i.imgur.com/MAuPJrp.png" alt="<?= htmlspecialchars($siteName) ?>" style="height:48px;width:auto">
+        <img src="https://i.imgur.com/eF2disk.png" alt="<?= htmlspecialchars($siteName) ?>" style="height:120px;width:auto">
       </div>
-      <div class="logo-sub"><?= htmlspecialchars($siteSuffix) ?> &mdash; <?= e($project_name) ?></div>
     </div>
 
     <?php if ($msg === 'nologin'): ?>

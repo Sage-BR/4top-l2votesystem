@@ -62,7 +62,7 @@ function renderNav() {
 
     echo '<nav class="navbar">';
     echo '<a href="' . htmlspecialchars($brandUrl) . '" class="nav-brand">';
-    echo '<img src="https://i.imgur.com/MAuPJrp.png" alt="VoteSystem" style="height:36px;width:auto;display:block">';
+    echo '<img src="https://i.imgur.com/eF2disk.png" alt="VoteSystem" style="height:50px;width:auto;display:block">';
     echo '</a>';
     echo '<ul class="nav-links">';
     echo '<li><a href="vote.php" class="' . ($curPage === 'vote.php' ? 'active' : '') . '" data-i18n="nav_vote">⚜ Votar</a></li>';
@@ -114,6 +114,19 @@ function renderNav() {
 
 function renderFooter() {
     $footer = defined('LAYOUT_FOOTER') ? LAYOUT_FOOTER : 'VoteSystem <span class="text-gold">4Top Servers</span>';
+
+    $footer = preg_replace(
+        '/<a\s[^>]*>(\s*4Top\s*Servers\s*)<\/a>/i',
+        '$1',
+        $footer
+    );
+    $footer = preg_replace(
+        '/4Top\s*Servers/i',
+        '<a href="https://top.4teambr.com/" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none">4Top Servers</a>',
+        $footer
+    );
+    // ──────────────────────────────────────────────────────────────────────
+
     echo '<footer class="footer">' . $footer . '</footer>';
     echo '</div>'; // .wrapper
     echo '</body></html>';

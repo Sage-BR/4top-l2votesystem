@@ -4,7 +4,7 @@
  * Compatible: PHP 5.4 ~ 8.2
  */
 
-if (!file_exists(__DIR__ . '/config.php')) { header('Location: install.php'); exit; }
+if (!file_exists(__DIR__ . '/.installed')) { header('Location: install.php'); exit; }
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/bootstrap.php';
@@ -23,7 +23,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
 
+
+
     if ($_POST['action'] === 'claim_reward') {
+        if (!verifyCsrf(isset($_POST['csrf']) ? $_POST['csrf'] : '')) {
+            echo json_encode(array('status' => 'error', 'msg' => '❌ Requisição inválida.'));
+            exit;
+        }
         $objId = (int)(isset($_POST['obj_id']) ? $_POST['obj_id'] : 0);
         if ($objId <= 0) {
             echo json_encode(array('status' => 'error', 'msg' => '❌ Selecione um personagem.'));
@@ -48,6 +54,7 @@ $tops_status = array();
 foreach ($tops as $top) {
     $cooldown_left = 0;
     $can_vote      = true;
+    $topBtn        = !empty($top['top_btn']) ? basename($top['top_btn']) : '';
 
     // 1) Consulta API para pegar voteTime real
     if (!empty($top['top_btn'])) {
@@ -83,9 +90,9 @@ foreach ($tops as $top) {
         }
     }
 
-    $top['can_vote']      = $can_vote;
-    $top['cooldown_left'] = $cooldown_left;
-    $tops_status[]        = $top;
+    $top['can_vote']        = $can_vote;
+    $top['cooldown_left']   = $cooldown_left;
+    $tops_status[]          = $top;
 }
 
 // Layout config
@@ -161,11 +168,14 @@ foreach ($tops_status as $idx => $top):
 
     $vote_url = e(getTopVoteUrl($top, $login));
 ?>
-      <div class="top-card<?= $voted_class ?>" id="topCard_<?= $top['id'] ?>">
+      <div class="top-card<?= $voted_class ?>"
+           id="topCard_<?= $top['id'] ?>"
+           >
 
         <div style="text-align:center;margin-bottom:.6rem">
           <div class="top-name"><?= e($top['name']) ?></div>
           <div class="top-status <?= $top['can_vote'] ? 'ok' : 'pending' ?>" style="justify-content:center"
+               id="topStatus_<?= $top['id'] ?>"
                data-i18n="<?= $top['can_vote'] ? 'top_available_status' : 'top_cooldown_status' ?>">
             <?= $top['can_vote'] ? '● Disponível' : '⏳ Em cooldown' ?>
           </div>
@@ -332,6 +342,9 @@ function _t(key) {
 function _tm(res) {
     return (window.vsI18n) ? window.vsI18n.translateMsg(res) : (res.msg || '');
 }
+
+
+
 
 function doCheckVotes(btn) {
     btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = _t('msg_checking_votes');
