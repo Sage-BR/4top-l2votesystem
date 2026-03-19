@@ -14,12 +14,6 @@ requireLogin();
 $login = $_SESSION['vs_login'];
 $ip    = clientIp();
 
-// DEBUG TEMPORÁRIO — remover após diagnosticar
-@file_put_contents(__DIR__ . '/ip_debug.log',
-    date('[Y-m-d H:i:s]') . ' login=' . $login . ' ip=' . $ip . "\n",
-    FILE_APPEND | LOCK_EX
-);
-
 // ── AJAX handlers ────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
