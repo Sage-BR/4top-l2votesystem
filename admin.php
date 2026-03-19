@@ -35,7 +35,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'hotservers.php'  => 'https://www.hotservers.org/servers/{SERVER_ID}/vote',
             'l2rankzone.php'  => 'https://l2rankzone.com/lineage2-servers/{SERVER_ID}/vote',
             'l2votes.php'     => 'https://www.l2votes.com/server/{SERVER_ID}/',
-            'gamestop200.php' => 'https://www.gamestop200.com/details/{SERVER_ID}/vote',
         );
 
         if (empty($name) || empty($top_id) || empty($top_btn)) {

@@ -27,7 +27,8 @@ function getTopKey($btn) {
         'hopzoneu.php'    => 'hopzoneu',
         'itopz.php'       => 'itopz',
         'l2toporg.php'    => 'l2toporg',
-        'arenatop100.php' => 'arenatop100',
+        'arenatop100.php'   => 'arenatop100',
+        'gamingtop100.php'  => 'gamingtop100',
         'hotservers.php'  => 'hotservers',
         'l2rankzone.php'  => 'l2rankzone',
     );
@@ -70,7 +71,7 @@ class RemoteTopApi {
      * Tops que não possuem API de consulta — só postback/callback.
      * Para esses, o claim é aceito sem verificação (jogador clicou = confirmado).
      */
-    private static $noCheckApi = array('arenatop100');
+    private static $noCheckApi = array('arenatop100', 'gamingtop100');
 
     public function checkVote($ip, $login = '') {
         // Tops sem API de check: aceita direto sem chamar o CDN
@@ -216,8 +217,9 @@ function getAvailableTops() {
         'hopzoneu.php'    => array('name' => 'Hopzone.eu',   'site' => 'hopzone.eu',         'token' => true,  'register_url' => 'https://hopzone.eu/add-server/'),
         'itopz.php'       => array('name' => 'iTopZ',        'site' => 'itopz.com',          'token' => true,  'register_url' => 'https://itopz.com/add'),
         'l2jbrasil.php'   => array('name' => 'L2JBrasil',   'site' => 'top.l2jbrasil.com', 'token' => true,  'register_url' => 'https://top.l2jbrasil.com/index.php?a=add'),
-        'l2toporg.php'    => array('name' => 'L2Top.org',   'site' => 'l2top.org',          'token' => true,  'register_url' => 'https://l2top.org/add-server/'),
-        'arenatop100.php' => array('name' => 'ArenaTop100', 'site' => 'arena-top100.com',   'token' => true,  'register_url' => 'https://www.arena-top100.com/index.php?a=add'),
+        'l2toporg.php'    => array('name' => 'L2Top.org',    'site' => 'l2top.org',         'token' => true,  'register_url' => 'https://l2top.org/add-server/'),
+        'arenatop100.php'   => array('name' => 'ArenaTop100',   'site' => 'arena-top100.com',  'token' => true,  'register_url' => 'https://www.arena-top100.com/index.php?a=add'),
+        'gamingtop100.php'  => array('name' => 'GamingTop100',   'site' => 'gamingtop100.net',   'token' => false, 'register_url' => 'https://gamingtop100.net/addserver'),
         'hotservers.php'  => array('name' => 'HotServers',  'site' => 'hotservers.org',       'token' => true,  'register_url' => 'https://www.hotservers.org/servers/add'),
         'l2rankzone.php'  => array('name' => 'L2RankZone',  'site' => 'l2rankzone.com',        'token' => true,  'register_url' => 'https://l2rankzone.com/dashboard'),
     );

@@ -14,6 +14,12 @@ requireLogin();
 $login = $_SESSION['vs_login'];
 $ip    = clientIp();
 
+// DEBUG TEMPORÁRIO — remover após diagnosticar
+@file_put_contents(__DIR__ . '/ip_debug.log',
+    date('[Y-m-d H:i:s]') . ' login=' . $login . ' ip=' . $ip . "\n",
+    FILE_APPEND | LOCK_EX
+);
+
 // ── AJAX handlers ────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
@@ -57,6 +63,8 @@ foreach ($tops as $top) {
     $topBtn        = !empty($top['top_btn']) ? basename($top['top_btn']) : '';
 
     // 1) Consulta API para pegar voteTime real
+    // Se a API confirmar o voto, registra no banco imediatamente (independente do claim).
+    // Isso garante que mudança de IP por CGNAT não faça o cooldown sumir.
     if (!empty($top['top_btn'])) {
         $api = loadTopApi($top);
         if ($api) {
@@ -67,6 +75,11 @@ foreach ($tops as $top) {
                 if ($secs_ago_api < 43200) {
                     $cooldown_left = 43200 - $secs_ago_api;
                     $can_vote      = false;
+                    // Persiste no banco para resistir a troca de IP (CGNAT)
+                    // hasVotedRecently evita duplicata
+                    if (!hasVotedRecently($login, $top['id'])) {
+                        registerVote($login, $top['id'], $ip);
+                    }
                 }
             }
         }
