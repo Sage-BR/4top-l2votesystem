@@ -19,6 +19,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/core.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/helpers.php';
+ensureVoteSchema();
 require_once __DIR__ . '/layout.php';
 
 // ── Layout helpers ────────────────────────────────────────────────────────────
@@ -114,6 +115,7 @@ function renderNav() {
 
 function renderFooter() {
     $footer = defined('LAYOUT_FOOTER') ? LAYOUT_FOOTER : 'VoteSystem <span class="text-gold">4Top Servers</span>';
+    $ipInfo = function_exists('clientIp') ? clientIp() : 'UNKNOWN';
 
     $footer = preg_replace(
         '/<a\s[^>]*>(\s*4Top\s*Servers\s*)<\/a>/i',
@@ -125,6 +127,7 @@ function renderFooter() {
         '<a href="https://top.4teambr.com/" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none">4Top Servers</a>',
         $footer
     );
+    $footer .= ' <span class="footer-ip">Seu ip: ' . htmlspecialchars($ipInfo, ENT_QUOTES, 'UTF-8') . '</span>';
     // ──────────────────────────────────────────────────────────────────────
 
     echo '<footer class="footer">' . $footer . '</footer>';

@@ -12,7 +12,11 @@ if (!file_exists(__DIR__ . '/.installed') && file_exists(__DIR__ . '/config.php'
 }
 
 if (!file_exists(__DIR__ . '/.installed')) {
-    header('Location: install.php');
+    header('Location: /vote/install.php');
+    exit;
+}
+if (!file_exists(__DIR__ . '/config.php')) {
+    header('Location: /vote/install.php');
     exit;
 }
 
@@ -41,7 +45,7 @@ require_once __DIR__ . '/includes/layout.php';
 startSession();
 
 if (isLoggedIn()) {
-    header('Location: vote.php');
+    header('Location: /vote/vote.php');
     exit;
 }
 
@@ -55,13 +59,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($login) || empty($password)) {
         $error = 'Preencha o login e a senha.';
     } else {
-        $user = gameLogin($login, $password);
-        if ($user) {
-            sessionLogin($user);
-            header('Location: vote.php');
-            exit;
-        } else {
+        try {
+            $user = gameLogin($login, $password);
+            if ($user) {
+                sessionLogin($user);
+                header('Location: /vote/vote.php');
+                exit;
+            }
             $error = 'Login ou senha incorretos.';
+        } catch (Throwable $e) {
+            error_log('[VoteSystem] login error: ' . $e->getMessage());
+            $error = 'Falha ao autenticar. Verifique o banco de dados.';
         }
     }
 }
@@ -141,6 +149,7 @@ for ($i = 0; $i < 14; $i++) {
       <div class="card-title" data-i18n="login_card_title">🔐 Acesso do Jogador</div>
 
       <form method="POST" action="index.php" id="loginForm">
+        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
         <div class="form-group">
           <label class="form-label" for="login" data-i18n="login_account_label">Login da Conta</label>
           <input type="text" id="login" name="login" class="form-control"

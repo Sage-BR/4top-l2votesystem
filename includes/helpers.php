@@ -174,6 +174,49 @@ function getTopVoteUrl($top, $login = '') {
 /**
  * Lista tops disponíveis buscando do CDN; fallback estático se CDN falhar.
  */
+function ensureVoteSchema() {
+    try {
+        $db = getDB();
+        $tables = array(
+            '4top_tops' => "CREATE TABLE IF NOT EXISTS `4top_tops` (
+                    `id` INT NOT NULL AUTO_INCREMENT, `name` VARCHAR(100) NOT NULL,
+                    `top_id` VARCHAR(200) NOT NULL, `token` VARCHAR(500) DEFAULT NULL,
+                    `url` VARCHAR(500) DEFAULT NULL, `top_btn` VARCHAR(50) DEFAULT NULL,
+                    `api_url` VARCHAR(500) DEFAULT NULL, `enabled` TINYINT(1) DEFAULT 1,
+                    `sort_order` INT DEFAULT 0, PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+            '4top_rewards' => "CREATE TABLE IF NOT EXISTS `4top_rewards` (
+                    `id` INT NOT NULL AUTO_INCREMENT, `item_id` INT NOT NULL,
+                    `quantity` INT NOT NULL DEFAULT 1, `description` VARCHAR(200) DEFAULT NULL,
+                    PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+            '4top_log' => "CREATE TABLE IF NOT EXISTS `4top_log` (
+                    `id` INT NOT NULL AUTO_INCREMENT, `login` VARCHAR(45) NOT NULL,
+                    `ip` VARCHAR(45) NOT NULL, `top_id` INT NOT NULL,
+                    `voted_at` DATETIME NOT NULL, `rewarded` TINYINT(1) DEFAULT 0,
+                    `rewarded_at` DATETIME DEFAULT NULL,
+                    PRIMARY KEY (`id`), INDEX `idx_login_top` (`login`,`top_id`), INDEX `idx_ip` (`ip`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+            '4top_reward_claims' => "CREATE TABLE IF NOT EXISTS `4top_reward_claims` (
+                    `id` INT NOT NULL AUTO_INCREMENT, `login` VARCHAR(45) NOT NULL,
+                    `claimed_at` DATETIME NOT NULL,
+                    PRIMARY KEY (`id`), INDEX `idx_login` (`login`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        );
+
+        foreach ($tables as $table => $sql) {
+            $stmt = $db->prepare("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?");
+            $stmt->execute(array($table));
+            $exists = (int)$stmt->fetchColumn() > 0;
+            if (!$exists) {
+                $db->exec($sql);
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('[VoteSystem] ensureVoteSchema error: ' . $e->getMessage());
+    }
+}
+
 function getAvailableTops() {
     $url  = VOTEAPI_CDN . '?action=list_tops';
     $body = false;

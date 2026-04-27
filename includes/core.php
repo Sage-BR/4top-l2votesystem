@@ -185,26 +185,104 @@ function _nextObjectId($db) {
 
 // ── IP do cliente ─────────────────────────────────────────────────────────────
 
-function clientIp() {
-    if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-        $ip = trim($_SERVER['HTTP_CF_CONNECTING_IP']);
-        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return $ip;
+function _ipValid($ip) {
+    $ip = trim((string)$ip);
+    return $ip !== '' && filter_var($ip, FILTER_VALIDATE_IP) ? $ip : false;
+}
+
+function _ipInCidr($ip, $cidr) {
+    $ip = _ipValid($ip);
+    if (!$ip) return false;
+    $cidr = trim((string)$cidr);
+    if ($cidr === '') return false;
+
+    if (strpos($cidr, '/') === false) {
+        return $ip === _ipValid($cidr);
     }
-    if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
-        $ip = trim($_SERVER['HTTP_X_REAL_IP']);
-        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return $ip;
+
+    list($subnet, $mask) = explode('/', $cidr, 2);
+    $subnet = _ipValid($subnet);
+    if (!$subnet) return false;
+
+    $mask = (int)$mask;
+    $ipBin = @inet_pton($ip);
+    $subBin = @inet_pton($subnet);
+    if ($ipBin === false || $subBin === false || strlen($ipBin) !== strlen($subBin)) return false;
+
+    $bits = strlen($ipBin) * 8;
+    if ($mask < 0 || $mask > $bits) return false;
+
+    $bytes = (int)floor($mask / 8);
+    $rem   = $mask % 8;
+
+    for ($i = 0; $i < $bytes; $i++) {
+        if ($ipBin[$i] !== $subBin[$i]) return false;
     }
-    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        foreach (explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']) as $ip) {
-            $ip = trim($ip);
-            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return $ip;
+
+    if ($rem === 0) return true;
+    $bitmask = chr((0xFF << (8 - $rem)) & 0xFF);
+    return (($ipBin[$bytes] & $bitmask) === ($subBin[$bytes] & $bitmask));
+}
+
+function _trustedProxyCidrs() {
+    return (defined('VS_TRUSTED_PROXY_CIDRS') && is_array(VS_TRUSTED_PROXY_CIDRS))
+        ? VS_TRUSTED_PROXY_CIDRS
+        : array();
+}
+
+function _isTrustedProxy($remoteAddr) {
+    $remoteAddr = _ipValid($remoteAddr);
+    if (!$remoteAddr) return false;
+    foreach (_trustedProxyCidrs() as $cidr) {
+        if (_ipInCidr($remoteAddr, $cidr)) return true;
+    }
+    return false;
+}
+
+function clientIpDetails() {
+    $remoteAddr = _ipValid(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '');
+    $trusted    = _isTrustedProxy($remoteAddr);
+
+    if ($trusted && !empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+        $ip = _ipValid($_SERVER['HTTP_CF_CONNECTING_IP']);
+        if ($ip) return array('ip' => $ip, 'source' => 'CF-Connecting-IP', 'remote_addr' => $remoteAddr, 'trusted_proxy' => true);
+    }
+
+    if ($trusted && !empty($_SERVER['HTTP_TRUE_CLIENT_IP'])) {
+        $ip = _ipValid($_SERVER['HTTP_TRUE_CLIENT_IP']);
+        if ($ip) return array('ip' => $ip, 'source' => 'True-Client-IP', 'remote_addr' => $remoteAddr, 'trusted_proxy' => true);
+    }
+
+    if ($trusted && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        foreach (explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']) as $part) {
+            $ip = _ipValid($part);
+            if ($ip) {
+                return array('ip' => $ip, 'source' => 'X-Forwarded-For', 'remote_addr' => $remoteAddr, 'trusted_proxy' => true);
+            }
         }
     }
-    if (!empty($_SERVER['REMOTE_ADDR'])) {
-        $ip = trim($_SERVER['REMOTE_ADDR']);
-        if (filter_var($ip, FILTER_VALIDATE_IP)) return $ip;
+
+    if ($trusted && !empty($_SERVER['HTTP_FORWARDED'])) {
+        if (preg_match_all('/for=(?:"?\\[?)([a-f0-9:.]+)(?:\\]?"?)/i', $_SERVER['HTTP_FORWARDED'], $m)) {
+            foreach ($m[1] as $part) {
+                $ip = _ipValid($part);
+                if ($ip) {
+                    return array('ip' => $ip, 'source' => 'Forwarded', 'remote_addr' => $remoteAddr, 'trusted_proxy' => true);
+                }
+            }
+        }
     }
-    return 'UNKNOWN';
+
+    if ($remoteAddr) {
+        return array('ip' => $remoteAddr, 'source' => 'REMOTE_ADDR', 'remote_addr' => $remoteAddr, 'trusted_proxy' => false);
+    }
+
+    return array('ip' => 'UNKNOWN', 'source' => 'UNKNOWN', 'remote_addr' => null, 'trusted_proxy' => false);
+}
+
+function clientIp() {
+    $details = clientIpDetails();
+    return isset($details['ip']) ? $details['ip'] : 'UNKNOWN';
 }
 
 // ── Sessão ────────────────────────────────────────────────────────────────────

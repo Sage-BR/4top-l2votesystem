@@ -23,7 +23,7 @@ function isAdmin() {
 
 function requireLogin() {
     if (!isLoggedIn()) {
-        header('Location: index.php?msg=nologin');
+        header('Location: /vote/index.php?msg=nologin');
         exit;
     }
 }
@@ -31,7 +31,7 @@ function requireLogin() {
 function requireAdmin() {
     requireLogin();
     if (!isAdmin()) {
-        header('Location: vote.php?msg=noaccess');
+        header('Location: /vote/vote.php?msg=noaccess');
         exit;
     }
 }

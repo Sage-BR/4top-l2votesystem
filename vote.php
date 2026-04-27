@@ -5,109 +5,115 @@
  */
 
 if (!file_exists(__DIR__ . '/.installed')) { header('Location: install.php'); exit; }
+if (!file_exists(__DIR__ . '/config.php')) { header('Location: index.php'); exit; }
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/bootstrap.php';
 
-requireLogin();
+try {
+    requireLogin();
 
-$login = $_SESSION['vs_login'];
-$ip    = clientIp();
+    $login = $_SESSION['vs_login'];
+    $ip    = clientIp();
 
-// ── AJAX handlers ────────────────────────────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    header('Content-Type: application/json');
+    // ── AJAX handlers ─────────────────────────────────────────────────────────
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+        header('Content-Type: application/json');
 
-    if ($_POST['action'] === 'check_votes') {
-        echo json_encode(checkVotes($login, $ip));
-        exit;
-    }
-
-
-
-    if ($_POST['action'] === 'claim_reward') {
-        if (!verifyCsrf(isset($_POST['csrf']) ? $_POST['csrf'] : '')) {
-            echo json_encode(array('status' => 'error', 'msg' => '❌ Requisição inválida.'));
+        if ($_POST['action'] === 'check_votes') {
+            echo json_encode(checkVotes($login, $ip));
             exit;
         }
-        $objId = (int)(isset($_POST['obj_id']) ? $_POST['obj_id'] : 0);
-        if ($objId <= 0) {
-            echo json_encode(array('status' => 'error', 'msg' => '❌ Selecione um personagem.'));
+
+        if ($_POST['action'] === 'claim_reward') {
+            if (!verifyCsrf(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '')) {
+                echo json_encode(array('status' => 'error', 'msg' => '❌ Requisição inválida.'));
+                exit;
+            }
+            $objId = (int)(isset($_POST['obj_id']) ? $_POST['obj_id'] : 0);
+            if ($objId <= 0) {
+                echo json_encode(array('status' => 'error', 'msg' => '❌ Selecione um personagem.'));
+                exit;
+            }
+            echo json_encode(claimReward($login, $objId));
             exit;
         }
-        echo json_encode(claimReward($login, $objId));
-        exit;
     }
-}
 
-// ── Build tops status ─────────────────────────────────────────────────────────
-$tops       = getTops();
-$rewards    = getRewards();
-$totalVotes = countVotes($login);
+    // ── Build tops status ─────────────────────────────────────────────────────
+    $tops       = array();
+    $rewards    = array();
+    $totalVotes = 0;
+    $lastClaim  = false;
 
-$db   = getDB();
-$stmt = $db->prepare("SELECT claimed_at FROM 4top_reward_claims WHERE login = ? AND claimed_at > DATE_SUB(NOW(), INTERVAL 12 HOUR) ORDER BY claimed_at DESC LIMIT 1");
-$stmt->execute(array($login));
-$lastClaim = $stmt->fetch();
+    try {
+        $tops       = getTops();
+        $rewards    = getRewards();
+        $totalVotes = countVotes($login);
 
-$tops_status = array();
-foreach ($tops as $top) {
-    $cooldown_left = 0;
-    $can_vote      = true;
-    $topBtn        = !empty($top['top_btn']) ? basename($top['top_btn']) : '';
+        $db   = getDB();
+        $stmt = $db->prepare("SELECT claimed_at FROM 4top_reward_claims WHERE login = ? AND claimed_at > DATE_SUB(NOW(), INTERVAL 12 HOUR) ORDER BY claimed_at DESC LIMIT 1");
+        $stmt->execute(array($login));
+        $lastClaim = $stmt->fetch();
+    } catch (Throwable $e) {
+        error_log('[VoteSystem] vote.php db block: ' . $e->getMessage());
+    }
 
-    // 1) Consulta API para pegar voteTime real
-    // Se a API confirmar o voto, registra no banco imediatamente (independente do claim).
-    // Isso garante que mudança de IP por CGNAT não faça o cooldown sumir.
-    if (!empty($top['top_btn'])) {
-        $api = loadTopApi($top);
-        if ($api) {
-            $apiResult = $api->checkVote($ip, $login);
-            if (!$apiResult->error && $apiResult->voted) {
-                $voteTime     = $apiResult->voteTime > 0 ? $apiResult->voteTime : time();
-                $secs_ago_api = time() - $voteTime;
-                if ($secs_ago_api < 43200) {
-                    $cooldown_left = 43200 - $secs_ago_api;
-                    $can_vote      = false;
-                    // Persiste no banco para resistir a troca de IP (CGNAT)
-                    // hasVotedRecently evita duplicata
-                    if (!hasVotedRecently($login, $top['id'])) {
-                        registerVote($login, $top['id'], $ip);
+    $tops_status = array();
+    foreach ($tops as $top) {
+        $cooldown_left = 0;
+        $can_vote      = true;
+
+        if (!empty($top['top_btn'])) {
+            $api = loadTopApi($top);
+            if ($api) {
+                $apiResult = $api->checkVote($ip, $login);
+                if (!$apiResult->error && $apiResult->voted) {
+                    $voteTime     = $apiResult->voteTime > 0 ? $apiResult->voteTime : time();
+                    $secs_ago_api = time() - $voteTime;
+                    if ($secs_ago_api < 43200) {
+                        $cooldown_left = 43200 - $secs_ago_api;
+                        $can_vote      = false;
+                        if (!hasVotedRecently($login, $top['id'])) {
+                            registerVote($login, $top['id'], $ip);
+                        }
                     }
                 }
             }
         }
-    }
 
-    // 2) Se a API disse "pode votar", verifica o DB pelo login (ignora IP)
-    if ($can_vote) {
-        $dbVote = getLastVote($login, $top['id']);
-        if ($dbVote && (int)$dbVote['seconds_ago'] < 43200) {
-            $cooldown_left = 43200 - (int)$dbVote['seconds_ago'];
-            $can_vote      = false;
+        if ($can_vote) {
+            $dbVote = getLastVote($login, $top['id']);
+            if ($dbVote && (int)$dbVote['seconds_ago'] < 43200) {
+                $cooldown_left = 43200 - (int)$dbVote['seconds_ago'];
+                $can_vote      = false;
+            }
         }
-    }
 
-    // 3) lastClaim como fallback final (ex: ArenaTop100 sem API e sem log no DB)
-    if ($can_vote && $lastClaim) {
-        $secs_since_claim = time() - strtotime($lastClaim['claimed_at']);
-        $cooldown_left    = max(0, 43200 - $secs_since_claim);
-        if ($cooldown_left > 0) {
-            $can_vote = false;
+        if ($can_vote && $lastClaim) {
+            $secs_since_claim = time() - strtotime($lastClaim['claimed_at']);
+            $cooldown_left    = max(0, 43200 - $secs_since_claim);
+            if ($cooldown_left > 0) {
+                $can_vote = false;
+            }
         }
+
+        $top['can_vote']     = $can_vote;
+        $top['cooldown_left'] = $cooldown_left;
+        $tops_status[]        = $top;
     }
 
-    $top['can_vote']        = $can_vote;
-    $top['cooldown_left']   = $cooldown_left;
-    $tops_status[]          = $top;
+    $siteName  = defined('LAYOUT_SITE_NAME') ? LAYOUT_SITE_NAME : 'VoteSystem';
+    $brandIcon = defined('LAYOUT_BRAND_ICON') ? LAYOUT_BRAND_ICON : '⚔';
+
+    renderHead('Votar');
+    renderNav();
+} catch (Throwable $e) {
+    error_log('[VoteSystem] vote.php fatal: ' . $e->getMessage());
+    http_response_code(500);
+    echo 'Erro interno ao abrir a página de voto.';
+    exit;
 }
-
-// Layout config
-$siteName  = defined('LAYOUT_SITE_NAME') ? LAYOUT_SITE_NAME : 'VoteSystem';
-$brandIcon = defined('LAYOUT_BRAND_ICON') ? LAYOUT_BRAND_ICON : '⚔';
-
-renderHead('Votar');
-renderNav();
 ?>
 
 <main class="main-content">
@@ -240,11 +246,12 @@ foreach ($tops_status as $idx => $top):
       </div>
 
       <div id="stepClaim" style="display:none;margin-top:1rem">
-        <div style="font-size:.8rem;color:var(--text-dim);margin-bottom:.5rem" data-i18n="claim_choose_char">Escolha o personagem que vai receber:</div>
-        <select id="charSelect"
-          style="width:100%;padding:.6rem .75rem;border-radius:6px;border:1px solid rgba(201,168,76,.4);
-                 background:rgba(0,0,0,.3);color:var(--text-primary);font-size:.9rem;margin-bottom:.75rem;cursor:pointer">
-        </select>
+          <div style="font-size:.8rem;color:var(--text-dim);margin-bottom:.5rem" data-i18n="claim_choose_char">Escolha o personagem que vai receber:</div>
+          <input type="hidden" id="claimCsrfToken" value="<?= e(csrfToken()) ?>">
+          <select id="charSelect"
+            style="width:100%;padding:.6rem .75rem;border-radius:6px;border:1px solid rgba(201,168,76,.4);
+                   background:rgba(0,0,0,.3);color:var(--text-primary);font-size:.9rem;margin-bottom:.75rem;cursor:pointer">
+          </select>
         <button id="claimBtn" onclick="doClaimReward(this)"
           style="background:linear-gradient(135deg,#4ade80,#16a34a);color:#0a0a0f;font-weight:700;font-size:1rem;
                  padding:.75rem 2.5rem;border:none;border-radius:6px;cursor:pointer;letter-spacing:.05em;
@@ -386,6 +393,7 @@ function doClaimReward(btn) {
     var fd = new FormData();
     fd.append('action', 'claim_reward');
     fd.append('obj_id', objId);
+    fd.append('csrf_token', document.getElementById('claimCsrfToken').value);
     ajax('vote.php', fd, function(res) {
         if (res.status === 'ok') {
             showToast(_tm(res) || _t('msg_reward_ok'), 'ok');

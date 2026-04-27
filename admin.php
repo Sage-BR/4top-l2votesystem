@@ -189,6 +189,7 @@ renderNav();
       <?php endif; ?>
 
       <form method="POST" action="admin.php" id="addTopForm">
+        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
         <input type="hidden" name="action" value="add_top">
 
         <div class="form-group">
@@ -305,6 +306,7 @@ renderNav();
                     style="opacity:.35;cursor:not-allowed">⏸</button>
                   <?php else: ?>
                   <form method="POST" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                     <input type="hidden" name="action" value="toggle_top">
                     <input type="hidden" name="id" value="<?= (int)$top['id'] ?>">
                     <button class="btn btn-ghost btn-sm" type="submit"
@@ -316,6 +318,7 @@ renderNav();
                   <?php endif; ?>
                   <form method="POST" style="display:inline"
                     onsubmit="return confirm(window.vsI18n ? window.vsI18n.t('confirm_remove_top') : 'Remover este top?')">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                     <input type="hidden" name="action" value="remove_top">
                     <input type="hidden" name="id" value="<?= (int)$top['id'] ?>">
                     <button class="btn btn-danger btn-sm" type="submit" title="Remover">🗑</button>
@@ -340,6 +343,7 @@ renderNav();
       </p>
 
       <form method="POST" action="admin.php" id="rewardForm">
+        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
         <input type="hidden" name="action" value="add_reward">
 
         <div id="rewards-container">
@@ -408,9 +412,10 @@ renderNav();
           </tbody>
         </table>
       </div>
-      <form method="POST"
-        onsubmit="return confirm(window.vsI18n ? window.vsI18n.t('confirm_clear_rewards') : 'Remover TODOS os rewards?')"
-        style="margin-top:1rem">
+<form method="POST"
+                    onsubmit="return confirm(window.vsI18n ? window.vsI18n.t('confirm_clear_rewards') : 'Remover TODOS os rewards?')"
+                    style="margin-top:1rem">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
         <input type="hidden" name="action" value="clear_rewards">
         <button type="submit" class="btn btn-danger btn-sm" data-i18n="admin_btn_clear_rewards">🗑 Limpar Todos</button>
       </form>

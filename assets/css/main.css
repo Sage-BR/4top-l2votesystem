@@ -959,6 +959,17 @@ tr:hover td { background: rgba(201, 168, 76, 0.03); }
 .footer a { color: var(--gold-dim); text-decoration: none; }
 .footer a:hover { color: var(--gold); }
 
+.footer-ip {
+  display: inline-block;
+  margin-left: 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid rgba(201, 168, 76, 0.18);
+  color: var(--text-dim);
+  opacity: 0.9;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
 /* ═══════════════════════════════════════════
    UTILITIES
 ═══════════════════════════════════════════ */
