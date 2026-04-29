@@ -35,11 +35,14 @@ if (empty($network) && isset($_GET['user_id'])) {
 }
 
 // Log de tudo que chega para debug
+$callbackIp       = clientIp();
+$callbackIpSource = clientIpSource();
 $logEntry = date('Y-m-d H:i:s')
     . ' | network=' . $network
     . ' | GET='     . json_encode($_GET)
     . ' | POST='    . json_encode($_POST)
-    . ' | ip='      . clientIp() . "\n";
+    . ' | ip='      . $callbackIp
+    . ' | ip_source=' . $callbackIpSource . "\n";
 @file_put_contents(__DIR__ . '/vote_callback.log', $logEntry, FILE_APPEND | LOCK_EX);
 
 // ── Roteamento por network ────────────────────────────────────────────────────

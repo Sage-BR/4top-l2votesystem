@@ -134,7 +134,7 @@ for ($i = 0; $i < 14; $i++) {
 
     <div class="login-logo">
       <div style="margin-bottom:.75rem;line-height:1">
-        <img src="https://i.imgur.com/eF2disk.png" alt="<?= htmlspecialchars($siteName) ?>" style="height:120px;width:auto">
+       <a href="https://top.4teambr.com/" target="_blank" rel="noopener noreferrer"><img src="https://i.imgur.com/eF2disk.png" alt="<?= htmlspecialchars($siteName) ?>" style="height:120px;width:auto"></a>
       </div>
     </div>
 

@@ -187,7 +187,25 @@ function _nextObjectId($db) {
 
 function _ipValid($ip) {
     $ip = trim((string)$ip);
+    if (preg_match('/^::ffff:(\\d+\\.\\d+\\.\\d+\\.\\d+)$/i', $ip, $m)) {
+        $ip = $m[1];
+    }
     return $ip !== '' && filter_var($ip, FILTER_VALIDATE_IP) ? $ip : false;
+}
+
+function _ipVersion($ip) {
+    if (!filter_var($ip, FILTER_VALIDATE_IP)) return 0;
+    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) return 4;
+    return 0;
+}
+
+function _pickPreferredIp(array $candidates) {
+    foreach ($candidates as $candidate) {
+        $ip = _ipValid($candidate);
+        if (!$ip) continue;
+        if (_ipVersion($ip) === 4) return $ip;
+    }
+    return false;
 }
 
 function _ipInCidr($ip, $cidr) {
@@ -244,36 +262,45 @@ function clientIpDetails() {
     $trusted    = _isTrustedProxy($remoteAddr);
 
     if ($trusted && !empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-        $ip = _ipValid($_SERVER['HTTP_CF_CONNECTING_IP']);
+        $ip = _pickPreferredIp(array(
+            $_SERVER['HTTP_CF_CONNECTING_IP'],
+            isset($_SERVER['HTTP_CF_PSEUDO_IPV4']) ? $_SERVER['HTTP_CF_PSEUDO_IPV4'] : '',
+            isset($_SERVER['HTTP_CF_CONNECTING_IPV6']) ? $_SERVER['HTTP_CF_CONNECTING_IPV6'] : '',
+        ));
         if ($ip) return array('ip' => $ip, 'source' => 'CF-Connecting-IP', 'remote_addr' => $remoteAddr, 'trusted_proxy' => true);
     }
 
     if ($trusted && !empty($_SERVER['HTTP_TRUE_CLIENT_IP'])) {
-        $ip = _ipValid($_SERVER['HTTP_TRUE_CLIENT_IP']);
+        $ip = _pickPreferredIp(array($_SERVER['HTTP_TRUE_CLIENT_IP']));
         if ($ip) return array('ip' => $ip, 'source' => 'True-Client-IP', 'remote_addr' => $remoteAddr, 'trusted_proxy' => true);
     }
 
     if ($trusted && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        foreach (explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']) as $part) {
-            $ip = _ipValid($part);
-            if ($ip) {
-                return array('ip' => $ip, 'source' => 'X-Forwarded-For', 'remote_addr' => $remoteAddr, 'trusted_proxy' => true);
-            }
+        $ip = _pickPreferredIp(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']));
+        if ($ip) {
+            return array('ip' => $ip, 'source' => 'X-Forwarded-For', 'remote_addr' => $remoteAddr, 'trusted_proxy' => true);
+        }
+    }
+
+    if ($trusted && !empty($_SERVER['HTTP_X_REAL_IP'])) {
+        $ip = _pickPreferredIp(array($_SERVER['HTTP_X_REAL_IP']));
+        if ($ip) {
+            return array('ip' => $ip, 'source' => 'X-Real-IP', 'remote_addr' => $remoteAddr, 'trusted_proxy' => true);
         }
     }
 
     if ($trusted && !empty($_SERVER['HTTP_FORWARDED'])) {
+        $candidates = array();
         if (preg_match_all('/for=(?:"?\\[?)([a-f0-9:.]+)(?:\\]?"?)/i', $_SERVER['HTTP_FORWARDED'], $m)) {
-            foreach ($m[1] as $part) {
-                $ip = _ipValid($part);
-                if ($ip) {
-                    return array('ip' => $ip, 'source' => 'Forwarded', 'remote_addr' => $remoteAddr, 'trusted_proxy' => true);
-                }
-            }
+            $candidates = $m[1];
+        }
+        $ip = _pickPreferredIp($candidates);
+        if ($ip) {
+            return array('ip' => $ip, 'source' => 'Forwarded', 'remote_addr' => $remoteAddr, 'trusted_proxy' => true);
         }
     }
 
-    if ($remoteAddr) {
+    if ($remoteAddr && _ipVersion($remoteAddr) === 4) {
         return array('ip' => $remoteAddr, 'source' => 'REMOTE_ADDR', 'remote_addr' => $remoteAddr, 'trusted_proxy' => false);
     }
 
@@ -283,6 +310,11 @@ function clientIpDetails() {
 function clientIp() {
     $details = clientIpDetails();
     return isset($details['ip']) ? $details['ip'] : 'UNKNOWN';
+}
+
+function clientIpSource() {
+    $details = clientIpDetails();
+    return isset($details['source']) ? $details['source'] : 'UNKNOWN';
 }
 
 // ── Sessão ────────────────────────────────────────────────────────────────────
