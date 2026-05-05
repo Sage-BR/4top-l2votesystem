@@ -190,7 +190,7 @@ function _ipValid($ip) {
     if (preg_match('/^::ffff:(\\d+\\.\\d+\\.\\d+\\.\\d+)$/i', $ip, $m)) {
         $ip = $m[1];
     }
-    return $ip !== '' && filter_var($ip, FILTER_VALIDATE_IP) ? $ip : false;
+    return $ip !== '' && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) ? $ip : false;
 }
 
 function _ipVersion($ip) {
@@ -261,31 +261,31 @@ function clientIpDetails() {
     $remoteAddr = _ipValid(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '');
     $trusted    = _isTrustedProxy($remoteAddr);
 
-    if ($trusted && !empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+    if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
         $ip = _pickPreferredIp(array(
             $_SERVER['HTTP_CF_CONNECTING_IP'],
             isset($_SERVER['HTTP_CF_PSEUDO_IPV4']) ? $_SERVER['HTTP_CF_PSEUDO_IPV4'] : '',
             isset($_SERVER['HTTP_CF_CONNECTING_IPV6']) ? $_SERVER['HTTP_CF_CONNECTING_IPV6'] : '',
         ));
-        if ($ip) return array('ip' => $ip, 'source' => 'CF-Connecting-IP', 'remote_addr' => $remoteAddr, 'trusted_proxy' => true);
+        if ($ip) return array('ip' => $ip, 'source' => 'CF-Connecting-IP', 'remote_addr' => $remoteAddr, 'trusted_proxy' => $trusted);
     }
 
-    if ($trusted && !empty($_SERVER['HTTP_TRUE_CLIENT_IP'])) {
+    if (!empty($_SERVER['HTTP_TRUE_CLIENT_IP'])) {
         $ip = _pickPreferredIp(array($_SERVER['HTTP_TRUE_CLIENT_IP']));
-        if ($ip) return array('ip' => $ip, 'source' => 'True-Client-IP', 'remote_addr' => $remoteAddr, 'trusted_proxy' => true);
+        if ($ip) return array('ip' => $ip, 'source' => 'True-Client-IP', 'remote_addr' => $remoteAddr, 'trusted_proxy' => $trusted);
     }
 
-    if ($trusted && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
         $ip = _pickPreferredIp(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']));
         if ($ip) {
-            return array('ip' => $ip, 'source' => 'X-Forwarded-For', 'remote_addr' => $remoteAddr, 'trusted_proxy' => true);
+            return array('ip' => $ip, 'source' => 'X-Forwarded-For', 'remote_addr' => $remoteAddr, 'trusted_proxy' => $trusted);
         }
     }
 
-    if ($trusted && !empty($_SERVER['HTTP_X_REAL_IP'])) {
+    if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
         $ip = _pickPreferredIp(array($_SERVER['HTTP_X_REAL_IP']));
         if ($ip) {
-            return array('ip' => $ip, 'source' => 'X-Real-IP', 'remote_addr' => $remoteAddr, 'trusted_proxy' => true);
+            return array('ip' => $ip, 'source' => 'X-Real-IP', 'remote_addr' => $remoteAddr, 'trusted_proxy' => $trusted);
         }
     }
 

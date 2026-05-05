@@ -12,11 +12,12 @@ if (!file_exists(__DIR__ . '/.installed') && file_exists(__DIR__ . '/config.php'
 }
 
 if (!file_exists(__DIR__ . '/.installed')) {
-    header('Location: /vote/install.php');
+    header('Location: install.php');
     exit;
 }
+
 if (!file_exists(__DIR__ . '/config.php')) {
-    header('Location: /vote/install.php');
+    header('Location: install.php');
     exit;
 }
 
@@ -45,7 +46,7 @@ require_once __DIR__ . '/includes/layout.php';
 startSession();
 
 if (isLoggedIn()) {
-    header('Location: /vote/vote.php');
+    header('Location: vote.php');
     exit;
 }
 
@@ -63,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = gameLogin($login, $password);
             if ($user) {
                 sessionLogin($user);
-                header('Location: /vote/vote.php');
+                header('Location: vote.php');
                 exit;
             }
             $error = 'Login ou senha incorretos.';

@@ -360,7 +360,11 @@ function _tm(res) {
 
 
 
+var _checkLock = false;
+
 function doCheckVotes(btn) {
+    if (_checkLock) return;
+    _checkLock = true;
     btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = _t('msg_checking_votes');
     var fd = new FormData();
     fd.append('action', 'check_votes');
@@ -370,20 +374,36 @@ function doCheckVotes(btn) {
             document.getElementById('stepCheck').style.display = 'none';
             document.getElementById('stepClaim').style.display = 'block';
             showToast(_tm(res) || _t('msg_all_confirmed'), 'ok');
+            _checkLock = false;
         } else if (res.status === 'cooldown') {
             showToast(_tm(res) || _t('msg_cooldown'), 'cooldown');
-            btn.disabled = false; btn.style.opacity = '1';
-            btn.textContent = _t('btn_check_votes');
+            _reEnableCheckBtn(btn, 5);
         } else {
             showToast(_tm(res) || _t('msg_connect_error'), res.status === 'not_voted' ? 'info' : 'error');
-            btn.disabled = false; btn.style.opacity = '1';
-            btn.textContent = _t('btn_check_votes');
+            _reEnableCheckBtn(btn, 5);
         }
     }, function() {
         showToast(_t('msg_connect_error'), 'error');
-        btn.disabled = false; btn.style.opacity = '1';
-        btn.textContent = _t('btn_check_votes');
+        _reEnableCheckBtn(btn, 5);
     });
+}
+
+function _reEnableCheckBtn(btn, secs) {
+    var remaining = secs;
+    var label = _t('btn_check_votes');
+    btn.textContent = label + ' (' + remaining + 's)';
+    var iv = setInterval(function() {
+        remaining--;
+        if (remaining <= 0) {
+            clearInterval(iv);
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.textContent = label;
+            _checkLock = false;
+        } else {
+            btn.textContent = label + ' (' + remaining + 's)';
+        }
+    }, 1000);
 }
 
 function doClaimReward(btn) {
