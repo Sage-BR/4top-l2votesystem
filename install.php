@@ -27,10 +27,11 @@ function verifyToken() {
     }
 }
 
-$valid_projects = array('acis', 'l2jorion', 'l2jmobius', 'l2jsunrise', 'l2mythras', 'l2jlisvus');
+$valid_projects = array('acis', 'l2jserver', 'l2jorion', 'l2jmobius', 'l2jsunrise', 'l2mythras', 'l2jlisvus');
 
 $project_info = array(
     'acis'       => array('name' => 'aCis',       'icon' => '&#9876;&#65039;',   'desc' => 'aCis 362~408 (SHA1 Base64) e 409+ (BCrypt) - detectado automaticamente', 'pass' => 'SHA1 / BCrypt'),
+    'l2jserver'  => array('name' => 'L2JServer',  'icon' => '&#128309;',         'desc' => 'L2JServer / L2J4TeamC2 - reward direto no items', 'pass' => 'SHA1 Base64'),
     'l2jorion'   => array('name' => 'L2JOrion',   'icon' => '&#128737;&#65039;', 'desc' => 'L2JOrion - reward direto no items', 'pass' => 'SHA1 Base64'),
     'l2jmobius'  => array('name' => 'L2JMobius',  'icon' => '&#128302;',         'desc' => 'L2JMobius (all Chronicle) - reward direto no items', 'pass' => 'SHA1 Base64'),
     'l2jsunrise' => array('name' => 'L2JSunrise', 'icon' => '&#127749;',         'desc' => 'L2JSunrise - reward direto no items', 'pass' => 'SHA1 Base64'),

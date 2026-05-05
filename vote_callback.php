@@ -74,7 +74,7 @@ exit;
 function handleArenaTop100() {
     $secret = isset($_POST['secret']) ? trim($_POST['secret']) : (isset($_GET['secret']) ? trim($_GET['secret']) : '');
     $voted  = isset($_POST['voted'])  ? (int)$_POST['voted']  : (isset($_GET['voted'])  ? (int)$_GET['voted']   : 0);
-    $login  = isset($_POST['userid']) ? trim($_POST['userid']) : (isset($_GET['userid']) ? trim($_GET['userid']) : '');
+    $rawUserId = isset($_POST['userid']) ? trim($_POST['userid']) : (isset($_GET['userid']) ? trim($_GET['userid']) : '');
     $userip = isset($_POST['userip']) ? trim($_POST['userip']) : (isset($_GET['userip']) ? trim($_GET['userip']) : clientIp());
 
     // Voto inválido ou duplicado
@@ -84,8 +84,29 @@ function handleArenaTop100() {
         return;
     }
 
+    // ── Lê e valida user_id ──────────────────────────────────────────────────
+    $login = '';
+    if (is_numeric($rawUserId)) {
+        $db = getDB();
+        $stmt = $db->prepare("SELECT login FROM accounts WHERE CRC32(login) = ? LIMIT 1");
+        $stmt->execute(array($rawUserId));
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            $login = $row['login'];
+        }
+    }
+
+    if (empty($login)) {
+        $login = preg_replace('/[^a-zA-Z0-9_\-]/', '', $rawUserId);
+        $login = substr($login, 0, 45);
+    }
+
     // Sem login não tem como registrar
     if (empty($login)) {
+        @file_put_contents(__DIR__ . '/vote_callback.log',
+            date('Y-m-d H:i:s') . " | ArenaTop100 | USER_ID INVÁLIDO | raw=" . substr($rawUserId, 0, 50) . "\n",
+            FILE_APPEND | LOCK_EX
+        );
         http_response_code(200);
         echo 'OK';
         return;
@@ -106,23 +127,7 @@ function handleArenaTop100() {
         return;
     }
 
-    // Valida o secret contra o token cadastrado no banco
-    // token vazio no banco = top não configurado corretamente = rejeita
-    $tokenOk = isset($top['token'])
-        && is_string($top['token'])
-        && $top['token'] !== ''
-        && hash_equals((string)$top['token'], (string)$secret);
-
-    if (!$tokenOk) {
-        @file_put_contents(__DIR__ . '/vote_callback.log',
-            date('Y-m-d H:i:s') . " | ArenaTop100 | SECRET INVÁLIDO | secret=$secret\n",
-            FILE_APPEND | LOCK_EX
-        );
-        http_response_code(403);
-        echo 'FORBIDDEN';
-        return;
-    }
-
+    // ArenaTop100 não usa token/secret - aceita postback aberto
     $topId = (int)$top['id'];
 
     if (hasVotedRecently($login, $topId)) {
@@ -185,15 +190,27 @@ function handleGamingTop100() {
         return;
     }
 
-    // ── Lê e valida user_id (login do jogador) ────────────────────────────────
-    // GamingTop100 exige que user_id contenha apenas números — mas nosso login
-    // pode ser alfanumérico. O link de votação deve usar o login do jogador
-    // e o GamingTop100 devolve exatamente o que foi passado.
+    // ── Lê e valida user_id ──────────────────────────────────────────────────
+    // Se for numérico, tentamos reverter para o login via busca por CRC32
     $rawUserId = (string)(isset($_GET['user_id']) ? $_GET['user_id'] : '');
+    $login = '';
 
-    // Sanitiza: remove tudo que não seja alfanumérico, underscore ou hífen
-    $login = preg_replace('/[^a-zA-Z0-9_\-]/', '', $rawUserId);
-    $login = substr($login, 0, 45);
+    if (is_numeric($rawUserId)) {
+        // Busca qual conta tem o CRC32 que bate com o número recebido
+        $db = getDB();
+        $stmt = $db->prepare("SELECT login FROM accounts WHERE CRC32(login) = ? LIMIT 1");
+        $stmt->execute(array($rawUserId));
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            $login = $row['login'];
+        }
+    }
+
+    // Fallback: se não achou ou não é numérico, tenta tratar como login direto
+    if (empty($login)) {
+        $login = preg_replace('/[^a-zA-Z0-9_\-]/', '', $rawUserId);
+        $login = substr($login, 0, 45);
+    }
 
     if (empty($login)) {
         @file_put_contents(__DIR__ . '/vote_callback.log',

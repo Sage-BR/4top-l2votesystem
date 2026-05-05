@@ -171,11 +171,11 @@ foreach ($tops_status as $idx => $top):
     $remaining_fmt = $top['can_vote'] ? '' : formatCooldown($top['cooldown_left']);
 
     $btn_file = !empty($top['top_btn']) ? basename($top['top_btn'], '.php') : '';
-    $base     = 'assets/buttons/' . $btn_file;
+    $base     = __DIR__ . '/assets/buttons/' . $btn_file;
 
     $img_path = null;
     foreach (array('png','jpg','jpeg','gif') as $ext) {
-        if (file_exists($base . '.' . $ext)) { $img_path = $base . '.' . $ext; break; }
+        if (file_exists($base . '.' . $ext)) { $img_path = 'assets/buttons/' . $btn_file . '.' . $ext; break; }
     }
     if ($img_path === null) { $img_path = 'assets/buttons/default.png'; }
 

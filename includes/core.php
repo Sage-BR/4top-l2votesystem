@@ -33,7 +33,7 @@ function gameVerifyPassword($plainPassword, $storedHash) {
 // L2JMobius / L2JSunrise      → accessLevel   (camelCase)
 //
 function gameGetAccount($login) {
-    $col  = (GAME_PROJECT === 'l2jmobius' || GAME_PROJECT === 'l2jsunrise') ? 'accessLevel' : 'access_level';
+    $col  = in_array(GAME_PROJECT, array('l2jmobius', 'l2jsunrise')) ? 'accessLevel' : 'access_level';
     $db   = getDB();
     $stmt = $db->prepare(
         "SELECT login, password, `{$col}` AS access_level FROM accounts WHERE login = ? LIMIT 1"
@@ -61,7 +61,7 @@ function gameLogin($login, $password) {
 // L2JMobius / L2JSunrise      → charId,  account_name, deletetime, lastAccess
 //
 function _charIdCol() {
-    return (GAME_PROJECT === 'l2jmobius' || GAME_PROJECT === 'l2jsunrise') ? 'charId' : 'obj_Id';
+    return in_array(GAME_PROJECT, array('l2jmobius', 'l2jsunrise')) ? 'charId' : 'obj_Id';
 }
 
 function gameGetChars($login) {

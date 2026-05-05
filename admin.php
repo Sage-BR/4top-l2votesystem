@@ -252,6 +252,19 @@ renderNav();
             placeholder="Cole o token gerado no painel do site de votação">
         </div>
 
+        <div class="form-group" id="postbackGroup" style="display:none">
+          <label class="form-label">📥 Postback URL (copie para o painel do top)</label>
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <input type="text" id="postbackUrl" class="form-control" readonly
+              value="" style="background:rgba(0,0,0,.3);color:var(--gold)">
+            <button type="button" onclick="copyPostbackUrl()" class="btn btn-ghost"
+              style="padding:.5rem .75rem;flex:0 0 auto">📋</button>
+          </div>
+          <div style="font-size:.7rem;color:var(--text-dim);margin-top:.4rem">
+            Cole esta URL no campo "Postback URL" do painel do ArenaTop100
+          </div>
+        </div>
+
         <div class="alert alert-info" style="font-size:.75rem;margin-bottom:1rem" data-i18n="admin_url_auto_info">
           ℹ As URLs de votação são geradas automaticamente. A ordem é definida automaticamente (4TOP sempre em 1º).
         </div>
@@ -515,9 +528,20 @@ function onTopChange(sel) {
     var needsToken = opt.getAttribute('data-token') === '1';
     var site       = opt.getAttribute('data-site')  || '';
     var name       = opt.getAttribute('data-name')  || '';
+    var btnFile    = opt.value || '';
 
     document.getElementById('tokenGroup').style.display = needsToken ? '' : 'none';
     if (!needsToken) document.getElementById('topTokenInput').value = '';
+
+    // ArenaTop100: mostra URL do postback
+    var postbackGroup = document.getElementById('postbackGroup');
+    if (btnFile === 'arenatop100.php') {
+        var baseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
+        document.getElementById('postbackUrl').value = baseUrl + 'vote_callback.php?network=arenatop100';
+        postbackGroup.style.display = '';
+    } else {
+        postbackGroup.style.display = 'none';
+    }
 
     var nameInput    = document.getElementById('topNameInput');
     var currentValue = nameInput.value.trim();
@@ -543,6 +567,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (n) _topNames.push(n);
     }
 });
+function copyPostbackUrl() {
+    var input = document.getElementById('postbackUrl');
+    input.select();
+    document.execCommand('copy');
+    alert('URL copiada! Cole no painel do ArenaTop100');
+}
 </script>
 </body>
 </html>

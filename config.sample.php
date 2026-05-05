@@ -9,7 +9,7 @@ define('DB_PASS',       'sua_senha_aqui');
 define('DB_NAME',       'l2jdb');
 
 // Opções: 'acis' | 'l2jserver' | 'l2jmobius'
-define('GAME_PROJECT',  'acis');
+define('GAME_PROJECT',  'l2jserver');
 
 // Lista opcional de proxies/CDNs confiáveis para resolver o IP real do cliente.
 // Ex.: array('173.245.48.0/20', '103.21.244.0/22', '127.0.0.1');

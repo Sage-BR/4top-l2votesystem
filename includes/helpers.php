@@ -71,7 +71,7 @@ class RemoteTopApi {
      * Tops que não possuem API de consulta — só postback/callback.
      * Para esses, o claim é aceito sem verificação (jogador clicou = confirmado).
      */
-    private static $noCheckApi = array('arenatop100', 'gamingtop100');
+    private static $noCheckApi = array();
 
     public function checkVote($ip, $login = '') {
         // Tops sem API de check: aceita direto sem chamar o CDN
@@ -97,13 +97,22 @@ class RemoteTopApi {
 
         // voted é booleano true/false
         if (isset($data['voted']) && $data['voted'] === true) {
-            return $this->ok((int)(isset($data['voteTime']) ? $data['voteTime'] : 0));
+            $vt = isset($data['voteTime']) ? (int)$data['voteTime'] : 0;
+            // Se voteTime parece um IP (muito maior que timestamp UNIX), usa time()
+            if ($vt > 10000000000) { $vt = 0; }
+            return $this->ok($vt);
         }
 
         return $this->notVoted(isset($data['message']) ? $data['message'] : 'Não votou');
     }
 
     public function getVoteUrl($login = '') {
+        // ArenaTop100: gera URL local com login como userid
+        if ($this->topKey === 'arenatop100' && !empty($this->serverId)) {
+            $arenaUser = $this->serverId; // top_id no banco = username do ArenaTop100
+            return 'https://www.arena-top100.com/index.php?a=in&u=' . urlencode($arenaUser) . '&id=' . urlencode($login);
+        }
+
         $data = $this->call(array(
             'top'       => $this->topKey,
             'server_id' => $this->serverId,
@@ -218,42 +227,6 @@ function ensureVoteSchema() {
 }
 
 function getAvailableTops() {
-    $url  = VOTEAPI_CDN . '?action=list_tops';
-    $body = false;
-
-    if (function_exists('curl_init')) {
-        $ch = curl_init();
-        curl_setopt_array($ch, array(
-            CURLOPT_URL            => $url,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 8,
-            CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => 0,
-            CURLOPT_ENCODING       => '',
-        ));
-        $body = curl_exec($ch);
-        curl_close($ch);
-    } else {
-        $ctx  = stream_context_create(array('http' => array('timeout' => 8)));
-        $body = @file_get_contents($url, false, $ctx);
-    }
-
-    if ($body) {
-        $data = @json_decode($body, true);
-        if (!empty($data['tops']) && is_array($data['tops'])) {
-            $tops = $data['tops'];
-            uksort($tops, function($a, $b) use ($tops) {
-                if ($a === '4top.php') return -1;
-                if ($b === '4top.php') return  1;
-                return strcmp($tops[$a]['name'], $tops[$b]['name']);
-            });
-            return $tops;
-        }
-    }
-
-    // Fallback estático
     return array(
         '4top.php'        => array('name' => '4TOP',         'site' => 'top.4teambr.com',   'token' => false, 'register_url' => 'https://top.4teambr.com/addserver.php'),
         'hopzone.php'     => array('name' => 'Hopzone.net',  'site' => 'l2.hopzone.net',    'token' => true,  'register_url' => 'https://l2.hopzone.net/site/addServer/1'),
@@ -261,7 +234,7 @@ function getAvailableTops() {
         'itopz.php'       => array('name' => 'iTopZ',        'site' => 'itopz.com',          'token' => true,  'register_url' => 'https://itopz.com/add'),
         'l2jbrasil.php'   => array('name' => 'L2JBrasil',   'site' => 'top.l2jbrasil.com', 'token' => true,  'register_url' => 'https://top.l2jbrasil.com/index.php?a=add'),
         'l2toporg.php'    => array('name' => 'L2Top.org',    'site' => 'l2top.org',         'token' => true,  'register_url' => 'https://l2top.org/add-server/'),
-        'arenatop100.php'   => array('name' => 'ArenaTop100',   'site' => 'arena-top100.com',  'token' => true,  'register_url' => 'https://www.arena-top100.com/index.php?a=add'),
+        'arenatop100.php'   => array('name' => 'ArenaTop100',   'site' => 'arena-top100.com',  'token' => false, 'register_url' => 'https://www.arena-top100.com/index.php?a=add'),
         'gamingtop100.php'  => array('name' => 'GamingTop100',   'site' => 'gamingtop100.net',   'token' => false, 'register_url' => 'https://gamingtop100.net/addserver'),
         'hotservers.php'  => array('name' => 'HotServers',  'site' => 'hotservers.org',       'token' => true,  'register_url' => 'https://www.hotservers.org/servers/add'),
         'l2rankzone.php'  => array('name' => 'L2RankZone',  'site' => 'l2rankzone.com',        'token' => true,  'register_url' => 'https://l2rankzone.com/dashboard'),
@@ -313,6 +286,7 @@ function getRewards() {
  */
 function hasVotedRecently($login, $top_id) {
     $db   = getDB();
+    $login = trim((string)$login);
     $stmt = $db->prepare(
         "SELECT id FROM 4top_log
          WHERE login = ? AND top_id = ?
@@ -328,6 +302,7 @@ function hasVotedRecently($login, $top_id) {
  */
 function getLastVote($login, $top_id) {
     $db   = getDB();
+    $login = trim((string)$login);
     $stmt = $db->prepare(
         "SELECT *, TIMESTAMPDIFF(SECOND, voted_at, NOW()) AS seconds_ago
          FROM 4top_log
@@ -343,6 +318,7 @@ function getLastVote($login, $top_id) {
  */
 function countVotes($login) {
     $db   = getDB();
+    $login = trim((string)$login);
     $stmt = $db->prepare("SELECT COUNT(*) FROM 4top_log WHERE login = ?");
     $stmt->execute(array($login));
     return (int)$stmt->fetchColumn();
@@ -355,6 +331,7 @@ function countVotes($login) {
  * Retorna: 'ok' | 'cooldown' | 'error'
  */
 function registerVote($login, $top_id, $ip) {
+    $login = trim((string)$login);
     if (hasVotedRecently($login, $top_id)) return 'cooldown';
 
     $db = getDB();
@@ -386,6 +363,7 @@ function registerVote($login, $top_id, $ip) {
  */
 function checkVotes($login, $ip) {
     $db = getDB();
+    $login = trim((string)$login);
 
     // Cooldown de claim
     $chk = $db->prepare(
@@ -404,16 +382,34 @@ function checkVotes($login, $ip) {
     $confirmed = array();
 
     foreach ($tops as $t) {
-        $api = loadTopApi($t);
-        if ($api) {
-            $result = $api->checkVote($ip, $login);
-            if (!$result->error && $result->voted) {
-                $confirmed[$t['id']] = $result->voteTime > 0 ? $result->voteTime : time();
+        $voted = false;
+        $voteTime = 0;
+
+        // 1. Tenta o Check Local (Postback via Login) — Mais estável para CGNAT
+        $localVote = getLastVote($login, $t['id']);
+        if ($localVote && $localVote['seconds_ago'] < 43200) {
+            $voted = true;
+            $voteTime = strtotime($localVote['voted_at']);
+        }
+
+        // 2. Se não achou localmente, tenta a API via CDN (IP Check) — Fallback
+        if (!$voted) {
+            $api = loadTopApi($t);
+            if ($api) {
+                $result = $api->checkVote($ip, $login);
+                if (!$result->error && $result->voted) {
+                    $voted = true;
+                    $voteTime = $result->voteTime;
+                }
             } else {
-                $missing[] = htmlspecialchars($t['name'], ENT_QUOTES, 'UTF-8');
+                $voted = true; // Sem API configurada = aceita (ex: tops só link)
             }
+        }
+
+        if ($voted) {
+            $confirmed[$t['id']] = $voteTime > 0 ? $voteTime : time();
         } else {
-            $confirmed[$t['id']] = time();
+            $missing[] = htmlspecialchars($t['name'], ENT_QUOTES, 'UTF-8');
         }
     }
 
@@ -455,6 +451,7 @@ function checkVotes($login, $ip) {
  */
 function claimReward($login, $objId) {
     startSession();
+    $login = trim((string)$login);
 
     // Valida que checkVotes() foi chamado antes
     if (empty($_SESSION['vs_confirmed_votes']) || empty($_SESSION['vs_confirmed_ip'])) {
