@@ -9,16 +9,28 @@ if (!file_exists(__DIR__ . '/config.php')) { header('Location: index.php'); exit
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/engine/anticheat.php';
 
 try {
     requireLogin();
 
     $login = $_SESSION['vs_login'];
     $ip    = clientIp();
+    $anticheat = anticheatAnalyze($ip, $login);
+    $anticheatBlocked = !empty($anticheat['blocked']);
 
     // ── AJAX handlers ─────────────────────────────────────────────────────────
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         header('Content-Type: application/json');
+
+        if ($anticheatBlocked && in_array($_POST['action'], array('check_votes', 'claim_reward'), true)) {
+            echo json_encode(array(
+                'status' => 'error',
+                'msg'    => 'Acesso bloqueado: detectamos uso de VPN/proxy ou rede suspeita. Desative e tente novamente.',
+                'anticheat' => $anticheat,
+            ));
+            exit;
+        }
 
         if ($_POST['action'] === 'check_votes') {
             echo json_encode(checkVotes($login, $ip));
@@ -103,6 +115,14 @@ try {
         $tops_status[]        = $top;
     }
 
+    if ($anticheatBlocked) {
+        foreach ($tops_status as &$topBlock) {
+            $topBlock['can_vote'] = false;
+            $topBlock['cooldown_left'] = 0;
+        }
+        unset($topBlock);
+    }
+
     $siteName  = defined('LAYOUT_SITE_NAME') ? LAYOUT_SITE_NAME : 'VoteSystem';
     $brandIcon = defined('LAYOUT_BRAND_ICON') ? LAYOUT_BRAND_ICON : '⚔';
 
@@ -124,6 +144,16 @@ try {
     <p data-i18n="vote_subtitle">Vote nos tops para apoiar o servidor e ganhar recompensas exclusivas!</p>
     <div class="divider"><span>✦</span></div>
   </div>
+
+  <?php if (!empty($anticheatBlocked)): ?>
+  <div class="alert alert-warning" style="text-align:center;padding:1.25rem 1.5rem;margin-bottom:1.5rem">
+    <strong style="display:block;margin-bottom:.35rem">Acesso temporariamente bloqueado</strong>
+    <span style="font-size:.9rem;line-height:1.6">
+      Detectamos sinais de VPN/proxy ou conexão suspeita neste acesso.
+      Para votar e receber recompensa, desative a VPN/proxy e recarregue a página.
+    </span>
+  </div>
+  <?php endif; ?>
 
   <div class="stats-row">
     <div class="stat-card">
@@ -201,7 +231,7 @@ foreach ($tops_status as $idx => $top):
         <?php endif; ?>
 
         <div style="display:flex;justify-content:center;margin-top:.75rem">
-          <?php if ($top['can_vote']): ?>
+          <?php if ($top['can_vote'] && empty($anticheatBlocked)): ?>
           <a href="<?= $vote_url ?>" target="_blank" rel="noopener"
             class="vote-img-btn"
             title="Votar em <?= e($top['name']) ?>">
@@ -237,6 +267,7 @@ foreach ($tops_status as $idx => $top):
 
       <div id="stepCheck">
         <button id="checkBtn" onclick="doCheckVotes(this)"
+          <?= !empty($anticheatBlocked) ? 'disabled' : '' ?>
           style="background:linear-gradient(135deg,#c9a84c,#a07830);color:#0a0a0f;font-weight:700;font-size:1rem;
                  padding:.75rem 2.5rem;border:none;border-radius:6px;cursor:pointer;letter-spacing:.05em;
                  box-shadow:0 4px 20px rgba(201,168,76,.3);transition:all .2s"
@@ -253,6 +284,7 @@ foreach ($tops_status as $idx => $top):
                    background:rgba(0,0,0,.3);color:var(--text-primary);font-size:.9rem;margin-bottom:.75rem;cursor:pointer">
           </select>
         <button id="claimBtn" onclick="doClaimReward(this)"
+          <?= !empty($anticheatBlocked) ? 'disabled' : '' ?>
           style="background:linear-gradient(135deg,#4ade80,#16a34a);color:#0a0a0f;font-weight:700;font-size:1rem;
                  padding:.75rem 2.5rem;border:none;border-radius:6px;cursor:pointer;letter-spacing:.05em;
                  box-shadow:0 4px 20px rgba(74,222,128,.25);transition:all .2s"
@@ -364,6 +396,7 @@ var _checkLock = false;
 
 function doCheckVotes(btn) {
     if (_checkLock) return;
+    if (btn.disabled) return;
     _checkLock = true;
     btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = _t('msg_checking_votes');
     var fd = new FormData();
@@ -407,6 +440,7 @@ function _reEnableCheckBtn(btn, secs) {
 }
 
 function doClaimReward(btn) {
+    if (btn.disabled) return;
     var objId = document.getElementById('charSelect').value;
     if (!objId) { showToast(_t('msg_select_char'), 'error'); return; }
     btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = _t('msg_delivering');

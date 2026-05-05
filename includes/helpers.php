@@ -200,6 +200,12 @@ function ensureVoteSchema() {
                     `claimed_at` DATETIME NOT NULL,
                     PRIMARY KEY (`id`), INDEX `idx_login` (`login`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+            '4top_settings' => "CREATE TABLE IF NOT EXISTS `4top_settings` (
+                    `setting_key` VARCHAR(80) NOT NULL,
+                    `setting_value` TEXT DEFAULT NULL,
+                    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`setting_key`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         );
 
         foreach ($tables as $table => $sql) {
@@ -210,8 +216,43 @@ function ensureVoteSchema() {
                 $db->exec($sql);
             }
         }
+
+        $stmt = $db->prepare("SELECT setting_value FROM 4top_settings WHERE setting_key = ? LIMIT 1");
+        $stmt->execute(array('anticheat_enabled'));
+        if ($stmt->fetchColumn() === false) {
+            setSetting('anticheat_enabled', '1');
+        }
     } catch (Throwable $e) {
         error_log('[VoteSystem] ensureVoteSchema error: ' . $e->getMessage());
+    }
+}
+
+function getSetting($key, $default = null) {
+    try {
+        $db = getDB();
+        $stmt = $db->prepare("SELECT setting_value FROM 4top_settings WHERE setting_key = ? LIMIT 1");
+        $stmt->execute(array((string)$key));
+        $value = $stmt->fetchColumn();
+        if ($value === false) return $default;
+        return $value;
+    } catch (Throwable $e) {
+        return $default;
+    }
+}
+
+function setSetting($key, $value) {
+    try {
+        $db = getDB();
+        $stmt = $db->prepare(
+            "INSERT INTO 4top_settings (setting_key, setting_value)
+             VALUES (?, ?)
+             ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)"
+        );
+        $stmt->execute(array((string)$key, is_bool($value) ? ($value ? '1' : '0') : (string)$value));
+        return true;
+    } catch (Throwable $e) {
+        error_log('[VoteSystem] setSetting error: ' . $e->getMessage());
+        return false;
     }
 }
 

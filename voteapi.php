@@ -335,7 +335,7 @@ abstract class TopBase {
 // =============================================================================
 class FourTopTop extends TopBase {
     protected $name       = '4TOP';
-    protected $apiTimezone = 'America/Sao_Paulo'; // API retorna horário UTC-3
+    protected $apiTimezone = 'UTC'; // API original trabalha em UTC
     const API_URL          = 'https://top.4teambr.com/api.php';
     const VOTE_WINDOW      = 43200; // 12h em segundos
 
@@ -358,7 +358,7 @@ class FourTopTop extends TopBase {
         $voted   = (int)($data['voted']     ?? 0);
         $dateStr = $data['vote_date']        ?? null;
 
-        // Converte usando o fuso da API (America/Sao_Paulo) → Unix UTC
+        // Converte usando o fuso da API (UTC) → Unix UTC
         $voteTs  = $this->parseDateToUtc($dateStr);
 
         $this->log("voted=$voted | voteTs=$voteTs | vote_date=$dateStr | ip=$ip | login=$login | now=" . time());

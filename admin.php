@@ -125,11 +125,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db->exec("DELETE FROM 4top_rewards");
         $success = 'Todos os rewards foram removidos.';
     }
+
+    elseif ($action === 'toggle_anticheat') {
+        $enabled = !empty($_POST['anticheat_enabled']) ? true : false;
+        if (setSetting('anticheat_enabled', $enabled ? '1' : '0')) {
+            $success = $enabled ? 'Anticheat ativado.' : 'Anticheat desativado.';
+        } else {
+            $error = 'Não foi possível alterar o anticheat. Verifique o banco de dados.';
+        }
+    }
 }
 
 $tops    = getAllTops();
 $rewards = getRewards();
 $has4top = has4Top();
+$anticheatEnabled = (string)getSetting('anticheat_enabled', '1') !== '0';
 
 $stmt = $db->query("SELECT COUNT(*) FROM 4top_log");
 $total_votes = (int)$stmt->fetchColumn();
@@ -164,6 +174,10 @@ renderNav();
     <div class="stat-card">
       <div class="stat-value"><?= count($tops) ?></div>
       <div class="stat-label" data-i18n="admin_stat_tops">Tops Cadastrados</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value"><?= $anticheatEnabled ? 'ON' : 'OFF' ?></div>
+      <div class="stat-label">Anticheat</div>
     </div>
   </div>
 
@@ -420,6 +434,24 @@ renderNav();
         <button type="submit" class="btn btn-danger btn-sm" data-i18n="admin_btn_clear_rewards">🗑 Limpar Todos</button>
       </form>
       <?php endif; ?>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🛡 Anticheat</div>
+      <p style="font-size:.82rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.5">
+        Bloqueia a tela de voto quando a conexão parecer VPN, proxy ou rede suspeita.
+      </p>
+      <form method="POST" action="admin.php">
+        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+        <input type="hidden" name="action" value="toggle_anticheat">
+        <input type="hidden" name="anticheat_enabled" value="<?= $anticheatEnabled ? '0' : '1' ?>">
+        <button type="submit" class="btn btn-primary btn-full">
+          <?= $anticheatEnabled ? 'Desativar anticheat' : 'Ativar anticheat' ?>
+        </button>
+      </form>
+      <div style="font-size:.72rem;color:var(--text-dim);margin-top:.6rem">
+        Status atual: <strong><?= $anticheatEnabled ? 'Ativo' : 'Desativado' ?></strong>
+      </div>
     </div>
 
   </div><!-- .admin-grid -->

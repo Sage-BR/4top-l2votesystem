@@ -82,6 +82,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) ? $_POST['
             $cfg .= "define('DB_PASS',      '" . $esc($db_pass) . "');\n";
             $cfg .= "define('DB_NAME',      '" . $esc($db_name) . "');\n";
             $cfg .= "define('GAME_PROJECT', '" . $esc($project) . "');\n";
+            $cfg .= "define('VS_ANTICHEAT_ENABLED', true);\n";
+            $cfg .= "define('VS_ANTICHEAT_RISK_BLOCK', 70);\n";
+            $cfg .= "define('VS_ANTICHEAT_CACHE_SEC', 900);\n";
+            $cfg .= "define('VS_ANTICHEAT_IPAPI_TIMEOUT', 4);\n";
             $cfg .= "define('INSTALLED',    true);\n";
 
             if (file_put_contents(__DIR__ . '/config.php', $cfg) === false) {
