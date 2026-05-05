@@ -69,10 +69,10 @@ try {
             if ($api) {
                 $apiResult = $api->checkVote($ip, $login);
                 if (!$apiResult->error && $apiResult->voted) {
-                    $voteTime     = $apiResult->voteTime > 0 ? $apiResult->voteTime : time();
-                    $secs_ago_api = time() - $voteTime;
-                    if ($secs_ago_api < 43200) {
-                        $cooldown_left = 43200 - $secs_ago_api;
+                    $voteTime     = $apiResult->voteTime > 0 ? $apiResult->voteTime : 0;
+                    $secs_ago_api = max(0, time() - $voteTime);
+                    if ($voteTime === 0 || $secs_ago_api < 43200) {
+                        $cooldown_left = ($voteTime === 0) ? 0 : 43200 - $secs_ago_api;
                         $can_vote      = false;
                         if (!hasVotedRecently($login, $top['id'])) {
                             registerVote($login, $top['id'], $ip);
@@ -168,7 +168,7 @@ try {
 <?php
 foreach ($tops_status as $idx => $top):
     $voted_class   = !$top['can_vote'] ? ' voted' : '';
-    $remaining_fmt = $top['can_vote'] ? '' : formatCooldown($top['cooldown_left']);
+    $remaining_fmt = (!$top['can_vote'] && $top['cooldown_left'] > 0) ? formatCooldown($top['cooldown_left']) : '';
 
     $btn_file = !empty($top['top_btn']) ? basename($top['top_btn'], '.php') : '';
     $base     = __DIR__ . '/assets/buttons/' . $btn_file;
@@ -194,7 +194,7 @@ foreach ($tops_status as $idx => $top):
           </div>
         </div>
 
-        <?php if (!$top['can_vote']): ?>
+        <?php if (!$top['can_vote'] && $top['cooldown_left'] > 0): ?>
         <div class="top-cooldown" id="timer_<?= $top['id'] ?>" style="text-align:center">
           <span data-i18n="top_next_vote">⏱ Próximo voto em:</span> <strong class="countdown" data-secs="<?= $top['cooldown_left'] ?>"><?= $remaining_fmt ?></strong>
         </div>

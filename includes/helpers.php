@@ -27,8 +27,7 @@ function getTopKey($btn) {
         'hopzoneu.php'    => 'hopzoneu',
         'itopz.php'       => 'itopz',
         'l2toporg.php'    => 'l2toporg',
-        'arenatop100.php'   => 'arenatop100',
-        'gamingtop100.php'  => 'gamingtop100',
+        'adenatop.php'        => 'adenatop',
         'hotservers.php'  => 'hotservers',
         'l2rankzone.php'  => 'l2rankzone',
     );
@@ -67,10 +66,6 @@ class RemoteTopApi {
         $this->serverId = $serverId;
     }
 
-    /**
-     * Tops que não possuem API de consulta — só postback/callback.
-     * Para esses, o claim é aceito sem verificação (jogador clicou = confirmado).
-     */
     private static $noCheckApi = array();
 
     public function checkVote($ip, $login = '') {
@@ -107,12 +102,6 @@ class RemoteTopApi {
     }
 
     public function getVoteUrl($login = '') {
-        // ArenaTop100: gera URL local com login como userid
-        if ($this->topKey === 'arenatop100' && !empty($this->serverId)) {
-            $arenaUser = $this->serverId; // top_id no banco = username do ArenaTop100
-            return 'https://www.arena-top100.com/index.php?a=in&u=' . urlencode($arenaUser) . '&id=' . urlencode($login);
-        }
-
         $data = $this->call(array(
             'top'       => $this->topKey,
             'server_id' => $this->serverId,
@@ -234,10 +223,8 @@ function getAvailableTops() {
         'itopz.php'       => array('name' => 'iTopZ',        'site' => 'itopz.com',          'token' => true,  'register_url' => 'https://itopz.com/add'),
         'l2jbrasil.php'   => array('name' => 'L2JBrasil',   'site' => 'top.l2jbrasil.com', 'token' => true,  'register_url' => 'https://top.l2jbrasil.com/index.php?a=add'),
         'l2toporg.php'    => array('name' => 'L2Top.org',    'site' => 'l2top.org',         'token' => true,  'register_url' => 'https://l2top.org/add-server/'),
-        'arenatop100.php'   => array('name' => 'ArenaTop100',   'site' => 'arena-top100.com',  'token' => false, 'register_url' => 'https://www.arena-top100.com/index.php?a=add'),
-        'gamingtop100.php'  => array('name' => 'GamingTop100',   'site' => 'gamingtop100.net',   'token' => false, 'register_url' => 'https://gamingtop100.net/addserver'),
-        'hotservers.php'  => array('name' => 'HotServers',  'site' => 'hotservers.org',       'token' => true,  'register_url' => 'https://www.hotservers.org/servers/add'),
-        'l2rankzone.php'  => array('name' => 'L2RankZone',  'site' => 'l2rankzone.com',        'token' => true,  'register_url' => 'https://l2rankzone.com/dashboard'),
+        'hotservers.php'  => array('name' => 'HotServers',  'site' => 'hotservers.org',    'token' => true,  'register_url' => 'https://www.hotservers.org/servers/add'),
+        'l2rankzone.php'  => array('name' => 'L2RankZone',  'site' => 'l2rankzone.com',     'token' => true,  'register_url' => 'https://l2rankzone.com/dashboard'),
     );
 }
 
@@ -298,6 +285,23 @@ function hasVotedRecently($login, $top_id) {
 }
 
 /**
+ * Verifica se algum IP votou neste top nas últimas 12 horas.
+ * Evita que múltiplas contas vote do mesmo IP.
+ */
+function hasIpVotedRecently($ip, $top_id) {
+    if (empty($ip) || $ip === 'UNKNOWN') return false;
+    $db   = getDB();
+    $stmt = $db->prepare(
+        "SELECT id FROM 4top_log
+         WHERE ip = ? AND top_id = ?
+           AND voted_at > DATE_SUB(NOW(), INTERVAL 12 HOUR)
+         LIMIT 1"
+    );
+    $stmt->execute(array($ip, $top_id));
+    return (bool)$stmt->fetch();
+}
+
+/**
  * Retorna o último voto do jogador neste top, com seconds_ago calculado.
  */
 function getLastVote($login, $top_id) {
@@ -307,10 +311,28 @@ function getLastVote($login, $top_id) {
         "SELECT *, TIMESTAMPDIFF(SECOND, voted_at, NOW()) AS seconds_ago
          FROM 4top_log
          WHERE login = ? AND top_id = ?
-         ORDER BY voted_at DESC LIMIT 1"
+         ORDER BY voted_at DESC
+         LIMIT 1"
     );
     $stmt->execute(array($login, $top_id));
-    return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    return $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Retorna o último voto por IP neste top, com seconds_ago calculado.
+ */
+function getLastVoteByIp($ip, $top_id) {
+    if (empty($ip) || $ip === 'UNKNOWN') return false;
+    $db   = getDB();
+    $stmt = $db->prepare(
+        "SELECT *, TIMESTAMPDIFF(SECOND, voted_at, NOW()) AS seconds_ago
+         FROM 4top_log
+         WHERE ip = ? AND top_id = ?
+         ORDER BY voted_at DESC
+         LIMIT 1"
+    );
+    $stmt->execute(array($ip, $top_id));
+    return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
 /**
@@ -385,14 +407,14 @@ function checkVotes($login, $ip) {
         $voted = false;
         $voteTime = 0;
 
-        // 1. Tenta o Check Local (Postback via Login) — Mais estável para CGNAT
+        // 1. Tenta o Check Local por login — evita depender de IP para confirmar voto
         $localVote = getLastVote($login, $t['id']);
         if ($localVote && $localVote['seconds_ago'] < 43200) {
             $voted = true;
             $voteTime = strtotime($localVote['voted_at']);
         }
 
-        // 2. Se não achou localmente, tenta a API via CDN (IP Check) — Fallback
+        // 2. Se não achou localmente, tenta a API do top
         if (!$voted) {
             $api = loadTopApi($t);
             if ($api) {
