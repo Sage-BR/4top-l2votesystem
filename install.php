@@ -168,6 +168,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) ? $_POST['
                     PRIMARY KEY (`id`),
                     INDEX `idx_login` (`login`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+                "CREATE TABLE IF NOT EXISTS `4top_anticheat_log` (
+                    `id` INT NOT NULL AUTO_INCREMENT,
+                    `login` VARCHAR(45) DEFAULT NULL,
+                    `ip` VARCHAR(45) NOT NULL,
+                    `risk` TINYINT NOT NULL DEFAULT 0,
+                    `reason` VARCHAR(255) DEFAULT NULL,
+                    `source` VARCHAR(80) DEFAULT NULL,
+                    `blocked` TINYINT(1) NOT NULL DEFAULT 0,
+                    `signals` TEXT DEFAULT NULL,
+                    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id`),
+                    INDEX `idx_login` (`login`),
+                    INDEX `idx_ip` (`ip`),
+                    INDEX `idx_blocked_created` (`blocked`, `created_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+                "CREATE TABLE IF NOT EXISTS `4top_settings` (
+                    `setting_key` VARCHAR(80) NOT NULL,
+                    `setting_value` TEXT DEFAULT NULL,
+                    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`setting_key`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
             );
             foreach ($sqls as $sql) $pdo->exec($sql);
 
@@ -219,6 +240,8 @@ $tables_base = array(
     '4top_rewards'       => 'Itens de recompensa por voto',
     '4top_log'           => 'Historico de votos',
     '4top_reward_claims' => 'Registro de recompensas coletadas',
+    '4top_anticheat_log' => 'Log de detecções do anticheat',
+    '4top_settings'      => 'Configurações gerais',
 );
 ?>
 <!DOCTYPE html>

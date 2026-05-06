@@ -111,6 +111,12 @@ if (!function_exists('anticheatAnalyze')) {
         }
 
         $_SESSION[$cacheKey] = $result;
+        if ($result['blocked'] && function_exists('logAnticheatDetection')) {
+            $logData = $result;
+            $logData['ip'] = $ip;
+            $logData['login'] = $login;
+            logAnticheatDetection($logData);
+        }
         return $result;
     }
 

@@ -148,6 +148,7 @@ $stmt = $db->query("SELECT COUNT(*) FROM 4top_log WHERE voted_at > DATE_SUB(NOW(
 $votes_today = (int)$stmt->fetchColumn();
 
 $recent_log = getVoteLog(15);
+$recent_anticheat = getAnticheatLog(15);
 
 renderHead('Admin');
 renderNav();
@@ -498,6 +499,50 @@ renderNav();
                 <?= $log['rewarded'] ? 'Entregue' : 'Pendente' ?>
               </span>
             </td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+    <?php endif; ?>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem">
+    <div class="flex-between" style="margin-bottom:1rem">
+      <div class="card-title" style="margin:0">🛡 Detecções do Anticheat</div>
+      <span style="font-size:.75rem;color:var(--text-dim)">Últimos 15 bloqueios</span>
+    </div>
+
+    <?php if (empty($recent_anticheat)): ?>
+    <p style="font-size:.85rem;color:var(--text-dim)">Nenhuma detecção registrada ainda.</p>
+    <?php else: ?>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Login</th>
+            <th>IP</th>
+            <th>Risco</th>
+            <th>Motivo</th>
+            <th>Fonte</th>
+            <th>Status</th>
+            <th>Data/Hora</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($recent_anticheat as $row): ?>
+          <tr>
+            <td style="color:var(--gold-light)"><?= e($row['login'] ?: '—') ?></td>
+            <td><code style="font-size:.75rem;color:var(--text-dim)"><?= e($row['ip']) ?></code></td>
+            <td><span class="badge <?= ((int)$row['risk'] >= 70) ? 'badge-danger' : 'badge-gold' ?>"><?= (int)$row['risk'] ?></span></td>
+            <td style="font-size:.78rem;color:var(--text-secondary)"><?= e($row['reason'] ?: '—') ?></td>
+            <td style="font-size:.78rem;color:var(--text-secondary)"><?= e($row['source'] ?: '—') ?></td>
+            <td>
+              <span class="badge <?= $row['blocked'] ? 'badge-danger' : 'badge-gold' ?>">
+                <?= $row['blocked'] ? 'Bloqueado' : 'Apenas alerta' ?>
+              </span>
+            </td>
+            <td style="font-size:.78rem;color:var(--text-secondary)"><?= e($row['created_at']) ?></td>
           </tr>
           <?php endforeach; ?>
         </tbody>

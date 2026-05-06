@@ -200,6 +200,21 @@ function ensureVoteSchema() {
                     `claimed_at` DATETIME NOT NULL,
                     PRIMARY KEY (`id`), INDEX `idx_login` (`login`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+            '4top_anticheat_log' => "CREATE TABLE IF NOT EXISTS `4top_anticheat_log` (
+                    `id` INT NOT NULL AUTO_INCREMENT,
+                    `login` VARCHAR(45) DEFAULT NULL,
+                    `ip` VARCHAR(45) NOT NULL,
+                    `risk` TINYINT NOT NULL DEFAULT 0,
+                    `reason` VARCHAR(255) DEFAULT NULL,
+                    `source` VARCHAR(80) DEFAULT NULL,
+                    `blocked` TINYINT(1) NOT NULL DEFAULT 0,
+                    `signals` TEXT DEFAULT NULL,
+                    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id`),
+                    INDEX `idx_login` (`login`),
+                    INDEX `idx_ip` (`ip`),
+                    INDEX `idx_blocked_created` (`blocked`, `created_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
             '4top_settings' => "CREATE TABLE IF NOT EXISTS `4top_settings` (
                     `setting_key` VARCHAR(80) NOT NULL,
                     `setting_value` TEXT DEFAULT NULL,
@@ -252,6 +267,35 @@ function setSetting($key, $value) {
         return true;
     } catch (Throwable $e) {
         error_log('[VoteSystem] setSetting error: ' . $e->getMessage());
+        return false;
+    }
+}
+
+function logAnticheatDetection(array $data) {
+    try {
+        $db = getDB();
+        $stmt = $db->prepare(
+            "INSERT INTO 4top_anticheat_log (login, ip, risk, reason, source, blocked, signals, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, NOW())"
+        );
+
+        $signals = null;
+        if (!empty($data['signals'])) {
+            $signals = is_array($data['signals']) ? json_encode($data['signals'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : (string)$data['signals'];
+        }
+
+        $stmt->execute(array(
+            isset($data['login']) ? trim((string)$data['login']) : null,
+            isset($data['ip']) ? trim((string)$data['ip']) : '',
+            isset($data['risk']) ? (int)$data['risk'] : 0,
+            isset($data['reason']) ? (string)$data['reason'] : null,
+            isset($data['source']) ? (string)$data['source'] : null,
+            !empty($data['blocked']) ? 1 : 0,
+            $signals,
+        ));
+        return true;
+    } catch (Throwable $e) {
+        error_log('[VoteSystem] logAnticheatDetection error: ' . $e->getMessage());
         return false;
     }
 }
@@ -610,6 +654,27 @@ function getVoteLog($limit = 50, $offset = 0) {
     );
     $stmt->execute(array((int)$limit, (int)$offset));
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function getAnticheatLog($limit = 50, $offset = 0) {
+    try {
+        $db = getDB();
+        $limit = max(1, (int)$limit);
+        $offset = max(0, (int)$offset);
+        $stmt = $db->prepare(
+            "SELECT id, login, ip, risk, reason, source, blocked, signals, created_at
+             FROM 4top_anticheat_log
+             ORDER BY created_at DESC, id DESC
+             LIMIT ? OFFSET ?"
+        );
+        $stmt->bindValue(1, $limit, PDO::PARAM_INT);
+        $stmt->bindValue(2, $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    } catch (Throwable $e) {
+        error_log('[VoteSystem] getAnticheatLog error: ' . $e->getMessage());
+        return array();
+    }
 }
 
 
