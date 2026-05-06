@@ -1,0 +1,8 @@
+# Bloqueia acesso a arquivos sensíveis
+<FilesMatch "^(config\.php|\.env)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Bloqueia visualização de diretórios
+Options -Indexes

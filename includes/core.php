@@ -148,6 +148,16 @@ function _deliverRewardsGame($login, array $rewards, $db, $objId = null) {
             );
             break;
 
+        case 'l2jserver':
+            // L2J4TeamC2 - usa time_of_use ao invés de mana_left
+            $ins = $db->prepare(
+                "INSERT INTO items
+                    (owner_id, object_id, item_id, count, enchant_level,
+                     loc, loc_data, custom_type1, custom_type2, time_of_use)
+                 VALUES (?, ?, ?, ?, 0, 'INVENTORY', 0, 0, 0, 0)"
+            );
+            break;
+
         default: // acis, l2jorion
             $ins = $db->prepare(
                 "INSERT INTO items

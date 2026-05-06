@@ -28,13 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $url_templates = array(
             'l2jbrasil.php'   => 'https://top.l2jbrasil.com/index.php?a=in&s={SERVER_ID}',
             '4top.php'        => 'https://top.4teambr.com/index.php?a=in&s={SERVER_ID}',
-            'hopzone.php'     => 'https://hopzone.net/lineage2/vote/{SERVER_ID}',
-            'hopzoneu.php'    => 'https://hopzone.eu/server/{SERVER_ID}',
-            'itopz.php'       => 'https://itopz.com/vote/{SERVER_ID}',
             'l2toporg.php'    => 'https://l2top.org/server/{SERVER_ID}/',
-            'hotservers.php'  => 'https://www.hotservers.org/servers/{SERVER_ID}/vote',
-            'l2rankzone.php'  => 'https://l2rankzone.com/lineage2-servers/{SERVER_ID}/vote',
-            'l2votes.php'     => 'https://www.l2votes.com/server/{SERVER_ID}/',
+            'l2network.php'   => 'https://l2network.eu/index.php?a=in&u={SERVER_ID}',
         );
 
         if (empty($name) || empty($top_id) || empty($top_btn)) {

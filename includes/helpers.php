@@ -16,20 +16,16 @@
 
 // ── CDN 4teambr ───────────────────────────────────────────────────────────────
 
-define('VOTEAPI_CDN', 'https://cdn.4teambr.com/votesystem/voteapi.php');
+// API local - voteapi.php no mesmo servidor
+define('VOTEAPI_LOCAL', 'voteapi.php');
 
 // Mapa arquivo → identificador aceito pelo CDN
 function getTopKey($btn) {
     static $map = array(
         'l2jbrasil.php'   => 'l2jbrasil',
         '4top.php'        => '4top',
-        'hopzone.php'     => 'hopzone',
-        'hopzoneu.php'    => 'hopzoneu',
-        'itopz.php'       => 'itopz',
         'l2toporg.php'    => 'l2toporg',
-        'adenatop.php'        => 'adenatop',
-        'hotservers.php'  => 'hotservers',
-        'l2rankzone.php'  => 'l2rankzone',
+        'l2network.php'   => 'l2network',
     );
     return isset($map[$btn]) ? $map[$btn] : null;
 }
@@ -113,29 +109,27 @@ class RemoteTopApi {
     }
 
     private function call($params) {
-        $url = VOTEAPI_CDN . '?' . http_build_query($params);
-
-        if (function_exists('curl_init')) {
-            $ch = curl_init();
-            curl_setopt_array($ch, array(
-                CURLOPT_URL            => $url,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT        => $this->timeout,
-                CURLOPT_CONNECTTIMEOUT => $this->timeout,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_SSL_VERIFYHOST => 0,
-                CURLOPT_ENCODING       => '',
-            ));
-            $body = curl_exec($ch);
-            $err  = curl_error($ch);
-            curl_close($ch);
-            if ($err || $body === false) return null;
-        } else {
-            $ctx  = stream_context_create(array('http' => array('timeout' => $this->timeout)));
-            $body = @file_get_contents($url, false, $ctx);
-            if ($body === false) return null;
+        // URL absoluta para API local - abordagem robusta
+        $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') || 
+                  (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') 
+                  ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
+        
+        $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
+        $scriptDir = dirname($requestUri);
+        if ($scriptDir === '.' || $scriptDir === '') {
+            $scriptDir = '/';
         }
+        
+        $baseUrl = $scheme . '://' . $host . $scriptDir;
+        $url = rtrim($baseUrl, '/') . '/voteapi.php?' . http_build_query($params);
+
+        $ctx = stream_context_create(array(
+            'http' => array('timeout' => $this->timeout, 'ignore_errors' => true),
+            'ssl'  => array('verify_peer' => false, 'verify_peer_name' => false),
+        ));
+        $body = @file_get_contents($url, false, $ctx);
+        if ($body === false || trim($body) === '') return null;
 
         $data = @json_decode($body, true);
         return (json_last_error() === JSON_ERROR_NONE) ? $data : null;
@@ -157,16 +151,19 @@ class RemoteTopApi {
 
 /**
  * Retorna a URL de voto do player para o top.
- * Tenta getVoteUrl() da API primeiro; fallback para campo url do banco.
+ * Tenta getVoteUrl() da API primeiro; fallback para URL do banco.
  */
 function getTopVoteUrl($top, $login = '') {
+    $apiUrl = '#';
     if (!empty($top['top_btn'])) {
         $api = loadTopApi($top);
         if ($api && method_exists($api, 'getVoteUrl')) {
-            return $api->getVoteUrl($login);
+            $apiUrl = $api->getVoteUrl($login);
         }
     }
-    return isset($top['url']) ? (string)$top['url'] : '#';
+    // Fallback para URL do banco se API falhar ou retornar '#'
+    $dbUrl = isset($top['url']) ? trim($top['url']) : '';
+    return ($apiUrl && $apiUrl !== '#') ? $apiUrl : ($dbUrl ?: '#');
 }
 
 /**
@@ -302,14 +299,10 @@ function logAnticheatDetection(array $data) {
 
 function getAvailableTops() {
     return array(
-        '4top.php'        => array('name' => '4TOP',         'site' => 'top.4teambr.com',   'token' => false, 'register_url' => 'https://top.4teambr.com/addserver.php'),
-        'hopzone.php'     => array('name' => 'Hopzone.net',  'site' => 'l2.hopzone.net',    'token' => true,  'register_url' => 'https://l2.hopzone.net/site/addServer/1'),
-        'hopzoneu.php'    => array('name' => 'Hopzone.eu',   'site' => 'hopzone.eu',         'token' => true,  'register_url' => 'https://hopzone.eu/add-server/'),
-        'itopz.php'       => array('name' => 'iTopZ',        'site' => 'itopz.com',          'token' => true,  'register_url' => 'https://itopz.com/add'),
-        'l2jbrasil.php'   => array('name' => 'L2JBrasil',   'site' => 'top.l2jbrasil.com', 'token' => true,  'register_url' => 'https://top.l2jbrasil.com/index.php?a=add'),
-        'l2toporg.php'    => array('name' => 'L2Top.org',    'site' => 'l2top.org',         'token' => true,  'register_url' => 'https://l2top.org/add-server/'),
-        'hotservers.php'  => array('name' => 'HotServers',  'site' => 'hotservers.org',    'token' => true,  'register_url' => 'https://www.hotservers.org/servers/add'),
-        'l2rankzone.php'  => array('name' => 'L2RankZone',  'site' => 'l2rankzone.com',     'token' => true,  'register_url' => 'https://l2rankzone.com/dashboard'),
+        '4top.php'        => array('name' => '4TOP ★',      'site' => 'top.4teambr.com',   'token' => false, 'featured' => true,  'register_url' => 'https://top.4teambr.com/addserver.php'),
+        'l2jbrasil.php'   => array('name' => 'L2JBrasil ★', 'site' => 'top.l2jbrasil.com', 'token' => true,  'featured' => true,  'register_url' => 'https://top.l2jbrasil.com/index.php?a=add'),
+        'l2toporg.php'    => array('name' => 'L2Top.org ★', 'site' => 'l2top.org',         'token' => true,  'featured' => true,  'register_url' => 'https://l2top.org/add-server/'),
+        'l2network.php'   => array('name' => 'L2Network',   'site' => 'l2network.eu',      'token' => true,  'featured' => false, 'register_url' => 'https://l2network.eu/add-server'),
     );
 }
 
@@ -536,7 +529,6 @@ function checkVotes($login, $ip) {
     // Armazena os confirmados na sessão para o claim usar
     startSession();
     $_SESSION['vs_confirmed_votes'] = $confirmed;
-    $_SESSION['vs_confirmed_ip']    = $ip;
 
     return array(
         'status'    => 'ok',
@@ -561,12 +553,11 @@ function claimReward($login, $objId) {
     $login = trim((string)$login);
 
     // Valida que checkVotes() foi chamado antes
-    if (empty($_SESSION['vs_confirmed_votes']) || empty($_SESSION['vs_confirmed_ip'])) {
+    if (empty($_SESSION['vs_confirmed_votes'])) {
         return array('status' => 'error', 'msg' => '❌ Verificação de votos expirada. Clique em Verificar Votos novamente.');
     }
 
     $confirmed = $_SESSION['vs_confirmed_votes'];
-    $ip        = $_SESSION['vs_confirmed_ip'];
 
     // Valida que o personagem pertence à conta
     if (!gameCharBelongsTo($login, $objId)) {
@@ -594,9 +585,10 @@ function claimReward($login, $objId) {
             "INSERT INTO 4top_log (login, ip, top_id, voted_at, rewarded)
              VALUES (?, ?, ?, NOW(), 0)"
         );
+        $ip = clientIp();
         foreach ($confirmed as $top_id => $voteTime) {
             if (!hasVotedRecently($login, (int)$top_id)) {
-                $stmtLog->execute(array($login, $ip, (int)$top_id));
+                $stmtLog->execute(array($login, $ip ?: 'N/A', (int)$top_id));
             }
         }
 
@@ -621,7 +613,7 @@ function claimReward($login, $objId) {
         $db->commit();
 
         // Limpa sessão
-        unset($_SESSION['vs_confirmed_votes'], $_SESSION['vs_confirmed_ip']);
+        unset($_SESSION['vs_confirmed_votes']);
 
         return array('status' => 'ok', 'msg' => '🎁 Recompensa entregue com sucesso!');
 
