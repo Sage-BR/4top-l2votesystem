@@ -33,7 +33,8 @@ try {
         }
 
         if ($_POST['action'] === 'check_votes') {
-            echo json_encode(checkVotes($login, $ip));
+            $hwid = isset($_POST['hwid']) ? trim($_POST['hwid']) : '';
+            echo json_encode(checkVotes($login, $ip, $hwid));
             exit;
         }
 
@@ -47,7 +48,8 @@ try {
                 echo json_encode(array('status' => 'error', 'msg' => '❌ Selecione um personagem.'));
                 exit;
             }
-            echo json_encode(claimReward($login, $objId));
+            $hwid = isset($_POST['hwid']) ? trim($_POST['hwid']) : '';
+            echo json_encode(claimReward($login, $objId, $hwid));
             exit;
         }
     }
@@ -394,33 +396,6 @@ function _tm(res) {
 
 var _checkLock = false;
 
-function doCheckVotes(btn) {
-    if (_checkLock) return;
-    if (btn.disabled) return;
-    _checkLock = true;
-    btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = _t('msg_checking_votes');
-    var fd = new FormData();
-    fd.append('action', 'check_votes');
-    ajax('vote.php', fd, function(res) {
-        if (res.status === 'ok') {
-            populateChars(res.chars);
-            document.getElementById('stepCheck').style.display = 'none';
-            document.getElementById('stepClaim').style.display = 'block';
-            showToast(_tm(res) || _t('msg_all_confirmed'), 'ok');
-            _checkLock = false;
-        } else if (res.status === 'cooldown') {
-            showToast(_tm(res) || _t('msg_cooldown'), 'cooldown');
-            _reEnableCheckBtn(btn, 5);
-        } else {
-            showToast(_tm(res) || _t('msg_connect_error'), res.status === 'not_voted' ? 'info' : 'error');
-            _reEnableCheckBtn(btn, 5);
-        }
-    }, function() {
-        showToast(_t('msg_connect_error'), 'error');
-        _reEnableCheckBtn(btn, 5);
-    });
-}
-
 function _reEnableCheckBtn(btn, secs) {
     var remaining = secs;
     var label = _t('btn_check_votes');
@@ -443,31 +418,66 @@ function doClaimReward(btn) {
     if (btn.disabled) return;
     var objId = document.getElementById('charSelect').value;
     if (!objId) { showToast(_t('msg_select_char'), 'error'); return; }
-    btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = _t('msg_delivering');
-    var fd = new FormData();
-    fd.append('action', 'claim_reward');
-    fd.append('obj_id', objId);
-    fd.append('csrf_token', document.getElementById('claimCsrfToken').value);
-    ajax('vote.php', fd, function(res) {
-        if (res.status === 'ok') {
-            showToast(_tm(res) || _t('msg_reward_ok'), 'ok');
-            document.getElementById('claimSection').innerHTML =
+    
+    // Coleta HWID/Fingerprint antes de enviar
+    getFingerprint().then(function(hwid) {
+        btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = _t('msg_delivering');
+        var fd = new FormData();
+        fd.append('action', 'claim_reward');
+        fd.append('obj_id', objId);
+        fd.append('csrf_token', document.getElementById('claimCsrfToken').value);
+        fd.append('hwid', hwid || '');
+        ajax('vote.php', fd, function(res) {
+            if (res.status === 'ok') {
+                showToast(_tm(res) || _t('msg_reward_ok'), 'ok');
+                document.getElementById('claimSection').innerHTML =
                 '<div style="background:linear-gradient(135deg,rgba(26,100,50,.2),rgba(26,100,50,.05));' +
                 'border:1px solid rgba(45,138,90,.4);border-radius:10px;padding:1.5rem 2rem;' +
                 'display:inline-block;max-width:480px;width:100%;text-align:center">' +
                 '<div style="font-size:2rem;margin-bottom:.5rem">✅</div>' +
                 '<div style="font-size:1rem;font-weight:700;color:#4ade80;margin-bottom:.3rem">' + _t('reward_delivered_title') + '</div>' +
                 '<div style="font-size:.8rem;color:var(--text-dim)">' + _t('reward_delivered_sub') + '</div></div>';
-        } else if (res.status === 'cooldown') {
-            showToast(_tm(res) || _t('msg_cooldown'), 'cooldown');
+            } else if (res.status === 'cooldown') {
+                showToast(_tm(res) || _t('msg_cooldown'), 'cooldown');
+                btn.disabled = false; btn.style.opacity = '1'; btn.textContent = _t('btn_claim_reward');
+            } else {
+                showToast(_tm(res) || _t('msg_reward_error'), 'error');
+                btn.disabled = false; btn.style.opacity = '1'; btn.textContent = _t('btn_claim_reward');
+            }
+        }, function() {
+            showToast(_t('msg_connect_error'), 'error');
             btn.disabled = false; btn.style.opacity = '1'; btn.textContent = _t('btn_claim_reward');
-        } else {
-            showToast(_tm(res) || _t('msg_reward_error'), 'error');
+        });
+    }).catch(function(err) {
+        // Se falhar ao coletar HWID, prossegue mesmo assim
+        console.error('HWID collection error:', err);
+        btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = _t('msg_delivering');
+        var fd = new FormData();
+        fd.append('action', 'claim_reward');
+        fd.append('obj_id', objId);
+        fd.append('csrf_token', document.getElementById('claimCsrfToken').value);
+        fd.append('hwid', '');
+        ajax('vote.php', fd, function(res) {
+            if (res.status === 'ok') {
+                showToast(_tm(res) || _t('msg_reward_ok'), 'ok');
+                document.getElementById('claimSection').innerHTML =
+                '<div style="background:linear-gradient(135deg,rgba(26,100,50,.2),rgba(26,100,50,.05));' +
+                'border:1px solid rgba(45,138,90,.4);border-radius:10px;padding:1.5rem 2rem;' +
+                'display:inline-block;max-width:480px;width:100%;text-align:center">' +
+                '<div style="font-size:2rem;margin-bottom:.5rem">✅</div>' +
+                '<div style="font-size:1rem;font-weight:700;color:#4ade80;margin-bottom:.3rem">' + _t('reward_delivered_title') + '</div>' +
+                '<div style="font-size:.8rem;color:var(--text-dim)">' + _t('reward_delivered_sub') + '</div></div>';
+            } else if (res.status === 'cooldown') {
+                showToast(_tm(res) || _t('msg_cooldown'), 'cooldown');
+                btn.disabled = false; btn.style.opacity = '1'; btn.textContent = _t('btn_claim_reward');
+            } else {
+                showToast(_tm(res) || _t('msg_reward_error'), 'error');
+                btn.disabled = false; btn.style.opacity = '1'; btn.textContent = _t('btn_claim_reward');
+            }
+        }, function() {
+            showToast(_t('msg_connect_error'), 'error');
             btn.disabled = false; btn.style.opacity = '1'; btn.textContent = _t('btn_claim_reward');
-        }
-    }, function() {
-        showToast(_t('msg_connect_error'), 'error');
-        btn.disabled = false; btn.style.opacity = '1'; btn.textContent = _t('btn_claim_reward');
+        });
     });
 }
 
@@ -498,6 +508,80 @@ function formatTime(secs) {
     return pad(h) + ':' + pad(m) + ':' + pad(s);
 }
 function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+var _fingerprint = '';
+var _fpPromise = null;
+
+function getFingerprint() {
+    if (_fingerprint) { return Promise.resolve(_fingerprint); }
+    if (!_fpPromise) {
+        _fpPromise = (typeof FingerprintJS !== 'undefined')
+            ? FingerprintJS.load()
+            : Promise.resolve(null);
+    }
+    return _fpPromise.then(function(fp) {
+        if (!fp) return '';
+        return fp.get().then(function(result) {
+            _fingerprint = result.visitorId;
+            return _fingerprint;
+        });
+    }).catch(function() {
+        return '';
+    });
+}
+
+function doCheckVotes(btn) {
+    if (_checkLock) return;
+    if (btn.disabled) return;
+    _checkLock = true;
+    btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = _t('msg_checking_votes');
+    
+    getFingerprint().then(function(hwid) {
+        var fd = new FormData();
+        fd.append('action', 'check_votes');
+        fd.append('hwid', hwid || '');
+        ajax('vote.php', fd, function(res) {
+            if (res.status === 'ok') {
+                populateChars(res.chars);
+                document.getElementById('stepCheck').style.display = 'none';
+                document.getElementById('stepClaim').style.display = 'block';
+                showToast(_tm(res) || _t('msg_all_confirmed'), 'ok');
+                _checkLock = false;
+            } else if (res.status === 'cooldown') {
+                showToast(_tm(res) || _t('msg_cooldown'), 'cooldown');
+                _reEnableCheckBtn(btn, 5);
+            } else {
+                showToast(_tm(res) || _t('msg_connect_error'), res.status === 'not_voted' ? 'info' : 'error');
+                _reEnableCheckBtn(btn, 5);
+            }
+        }, function() {
+            showToast(_t('msg_connect_error'), 'error');
+            _reEnableCheckBtn(btn, 5);
+        });
+    }).catch(function() {
+        var fd = new FormData();
+        fd.append('action', 'check_votes');
+        fd.append('hwid', '');
+        ajax('vote.php', fd, function(res) {
+            if (res.status === 'ok') {
+                populateChars(res.chars);
+                document.getElementById('stepCheck').style.display = 'none';
+                document.getElementById('stepClaim').style.display = 'block';
+                showToast(_tm(res) || _t('msg_all_confirmed'), 'ok');
+                _checkLock = false;
+            } else if (res.status === 'cooldown') {
+                showToast(_tm(res) || _t('msg_cooldown'), 'cooldown');
+                _reEnableCheckBtn(btn, 5);
+            } else {
+                showToast(_tm(res) || _t('msg_connect_error'), res.status === 'not_voted' ? 'info' : 'error');
+                _reEnableCheckBtn(btn, 5);
+            }
+        }, function() {
+            showToast(_t('msg_connect_error'), 'error');
+            _reEnableCheckBtn(btn, 5);
+        });
+    });
+}
 
 document.addEventListener('DOMContentLoaded', function() {
     var countdowns = document.querySelectorAll('.countdown[data-secs]');

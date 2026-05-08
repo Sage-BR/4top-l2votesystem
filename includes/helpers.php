@@ -192,11 +192,11 @@ function ensureVoteSchema() {
                     `rewarded_at` DATETIME DEFAULT NULL,
                     PRIMARY KEY (`id`), INDEX `idx_login_top` (`login`,`top_id`), INDEX `idx_ip` (`ip`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
-            '4top_reward_claims' => "CREATE TABLE IF NOT EXISTS `4top_reward_claims` (
-                    `id` INT NOT NULL AUTO_INCREMENT, `login` VARCHAR(45) NOT NULL,
-                    `claimed_at` DATETIME NOT NULL,
-                    PRIMARY KEY (`id`), INDEX `idx_login` (`login`)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+'4top_reward_claims' => "CREATE TABLE IF NOT EXISTS `4top_reward_claims` (
+        `id` INT NOT NULL AUTO_INCREMENT, `login` VARCHAR(45) NOT NULL,
+        `claimed_at` DATETIME NOT NULL, `hwid` VARCHAR(128) DEFAULT NULL,
+        PRIMARY KEY (`id`), INDEX `idx_login` (`login`), INDEX `idx_hwid` (`hwid`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
             '4top_anticheat_log' => "CREATE TABLE IF NOT EXISTS `4top_anticheat_log` (
                     `id` INT NOT NULL AUTO_INCREMENT,
                     `login` VARCHAR(45) DEFAULT NULL,
@@ -227,6 +227,16 @@ function ensureVoteSchema() {
             if (!$exists) {
                 $db->exec($sql);
             }
+        }
+
+        // Migration: adiciona coluna hwid em 4top_reward_claims se não existir
+        $chk = $db->prepare(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '4top_reward_claims' AND COLUMN_NAME = 'hwid'"
+        );
+        $chk->execute();
+        if ((int)$chk->fetchColumn() === 0) {
+            $db->exec("ALTER TABLE `4top_reward_claims` ADD COLUMN `hwid` VARCHAR(128) DEFAULT NULL, ADD INDEX `idx_hwid` (`hwid`)");
         }
 
         $stmt = $db->prepare("SELECT setting_value FROM 4top_settings WHERE setting_key = ? LIMIT 1");
@@ -363,23 +373,6 @@ function hasVotedRecently($login, $top_id) {
 }
 
 /**
- * Verifica se algum IP votou neste top nas últimas 12 horas.
- * Evita que múltiplas contas vote do mesmo IP.
- */
-function hasIpVotedRecently($ip, $top_id) {
-    if (empty($ip) || $ip === 'UNKNOWN') return false;
-    $db   = getDB();
-    $stmt = $db->prepare(
-        "SELECT id FROM 4top_log
-         WHERE ip = ? AND top_id = ?
-           AND voted_at > DATE_SUB(NOW(), INTERVAL 12 HOUR)
-         LIMIT 1"
-    );
-    $stmt->execute(array($ip, $top_id));
-    return (bool)$stmt->fetch();
-}
-
-/**
  * Retorna o último voto do jogador neste top, com seconds_ago calculado.
  */
 function getLastVote($login, $top_id) {
@@ -393,23 +386,6 @@ function getLastVote($login, $top_id) {
          LIMIT 1"
     );
     $stmt->execute(array($login, $top_id));
-    return $stmt->fetch(PDO::FETCH_ASSOC);
-}
-
-/**
- * Retorna o último voto por IP neste top, com seconds_ago calculado.
- */
-function getLastVoteByIp($ip, $top_id) {
-    if (empty($ip) || $ip === 'UNKNOWN') return false;
-    $db   = getDB();
-    $stmt = $db->prepare(
-        "SELECT *, TIMESTAMPDIFF(SECOND, voted_at, NOW()) AS seconds_ago
-         FROM 4top_log
-         WHERE ip = ? AND top_id = ?
-         ORDER BY voted_at DESC
-         LIMIT 1"
-    );
-    $stmt->execute(array($ip, $top_id));
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
@@ -461,17 +437,19 @@ function registerVote($login, $top_id, $ip) {
  *   'confirmed' => [top_id => voteTime, ...]                       (só quando status=ok)
  * )
  */
-function checkVotes($login, $ip) {
+function checkVotes($login, $ip, $hwid = '') {
     $db = getDB();
     $login = trim((string)$login);
+    $hwid = trim((string)$hwid);
 
-    // Cooldown de claim
+    // Cooldown de claim por login ou hwid
     $chk = $db->prepare(
         "SELECT claimed_at FROM 4top_reward_claims
-         WHERE login = ? AND claimed_at > DATE_SUB(NOW(), INTERVAL 12 HOUR)
+         WHERE (login = ? OR (hwid IS NOT NULL AND hwid = ? AND hwid != ''))
+         AND claimed_at > DATE_SUB(NOW(), INTERVAL 12 HOUR)
          ORDER BY claimed_at DESC LIMIT 1"
     );
-    $chk->execute(array($login));
+    $chk->execute(array($login, $hwid ?: null));
     if ($chk->fetch()) {
         return array('status' => 'cooldown', 'msg' => '⏳ Você já coletou sua recompensa nas últimas 12 horas.');
     }
@@ -526,9 +504,12 @@ function checkVotes($login, $ip) {
         return array('status' => 'no_chars', 'msg' => '⚠ Nenhum personagem encontrado. Crie um personagem no jogo primeiro.');
     }
 
-    // Armazena os confirmados na sessão para o claim usar
+    // Armazena os confirmados e hwid na sessão para o claim usar
     startSession();
     $_SESSION['vs_confirmed_votes'] = $confirmed;
+    if ($hwid) {
+        $_SESSION['vs_confirmed_hwid'] = $hwid;
+    }
 
     return array(
         'status'    => 'ok',
@@ -548,9 +529,18 @@ function checkVotes($login, $ip) {
  * @param  int    $objId   obj_Id do personagem escolhido
  * @return array  ('status', 'msg')
  */
-function claimReward($login, $objId) {
+function claimReward($login, $objId, $hwid = null) {
     startSession();
     $login = trim((string)$login);
+    
+    // HWID pode vir do POST ou da sessão (salvo no checkVotes)
+    if (!empty($hwid)) {
+        $hwid = trim((string)$hwid);
+    } elseif (!empty($_SESSION['vs_confirmed_hwid'])) {
+        $hwid = $_SESSION['vs_confirmed_hwid'];
+    } else {
+        $hwid = '';
+    }
 
     // Valida que checkVotes() foi chamado antes
     if (empty($_SESSION['vs_confirmed_votes'])) {
@@ -566,13 +556,14 @@ function claimReward($login, $objId) {
 
     $db = getDB();
 
-    // Double-check cooldown
+    // Double-check cooldown: verifica login E hwid
     $chk = $db->prepare(
         "SELECT claimed_at FROM 4top_reward_claims
-         WHERE login = ? AND claimed_at > DATE_SUB(NOW(), INTERVAL 12 HOUR)
+         WHERE (login = ? OR (hwid IS NOT NULL AND hwid != '' AND hwid = ?))
+         AND claimed_at > DATE_SUB(NOW(), INTERVAL 12 HOUR)
          ORDER BY claimed_at DESC LIMIT 1"
     );
-    $chk->execute(array($login));
+    $chk->execute(array($login, $hwid ?: null));
     if ($chk->fetch()) {
         return array('status' => 'cooldown', 'msg' => '⏳ Você já coletou sua recompensa nas últimas 12 horas.');
     }
@@ -592,10 +583,10 @@ function claimReward($login, $objId) {
             }
         }
 
-        // Registra o claim
-        $db->prepare(
-            "INSERT INTO 4top_reward_claims (login, claimed_at) VALUES (?, NOW())"
-        )->execute(array($login));
+// Registra o claim com HWID
+    $db->prepare(
+        "INSERT INTO 4top_reward_claims (login, claimed_at, hwid) VALUES (?, NOW(), ?)"
+    )->execute(array($login, $hwid ?: null));
 
         // Entrega rewards no personagem escolhido
         $rewards = getRewards();

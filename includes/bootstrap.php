@@ -48,6 +48,7 @@ function renderHead($pageTitle = '') {
     if (trim($extraCss)) echo '<style>' . $extraCss . '</style>';
     // i18n: localForage (IndexedDB/WebSQL/localStorage) + sistema de idiomas
     echo '<script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>';
+    echo '<script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@4/dist/fp.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>';
     echo '<script src="assets/js/i18n.js"></script>';
     echo '</head>';
     echo '<body>';
