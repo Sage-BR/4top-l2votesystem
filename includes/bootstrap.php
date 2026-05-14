@@ -12,7 +12,11 @@ if (!defined('INSTALLED')) {
 }
 
 if (session_status() === PHP_SESSION_NONE) {
-    session_start(array('cookie_httponly' => true, 'cookie_samesite' => 'Lax'));
+    $params = array('cookie_httponly' => true, 'cookie_samesite' => 'Lax');
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        $params['cookie_secure'] = true;
+    }
+    session_start($params);
 }
 
 require_once __DIR__ . '/db.php';
@@ -47,8 +51,8 @@ function renderHead($pageTitle = '') {
     echo '<link rel="stylesheet" href="assets/css/main.css">';
     if (trim($extraCss)) echo '<style>' . $extraCss . '</style>';
     // i18n: localForage (IndexedDB/WebSQL/localStorage) + sistema de idiomas
-    echo '<script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>';
-    echo '<script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@4/dist/fp.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>';
+    echo '<script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" integrity="sha384-MTDrIlFOzEqpmOxY6UIA/1Zkh0a64UlmJ6R0UrZXqXCPx99siPGi8EmtQjIeCcTH"></script>';
+    echo '<script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@4/dist/fp.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" integrity="sha384-krE1YAVuJx0qn+hR6KwuVnQtbZIATYwWHVaIy7nXFZRyOrBxBfg81m+cqtbljaYo"></script>';
     echo '<script src="assets/js/i18n.js"></script>';
     echo '</head>';
     echo '<body>';
@@ -128,7 +132,10 @@ function renderFooter() {
         '<a href="https://top.4teambr.com/" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none">4Top Servers</a>',
         $footer
     );
-    $footer .= ' <span class="footer-ip">Seu ip: ' . htmlspecialchars($ipInfo, ENT_QUOTES, 'UTF-8') . '</span>';
+    $showIp = defined('LAYOUT_SHOW_IP') ? LAYOUT_SHOW_IP : false;
+    if ($showIp) {
+        $footer .= ' <span class="footer-ip">Seu ip: ' . htmlspecialchars($ipInfo, ENT_QUOTES, 'UTF-8') . '</span>';
+    }
     // ──────────────────────────────────────────────────────────────────────
 
     echo '<footer class="footer">' . $footer . '</footer>';

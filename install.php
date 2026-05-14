@@ -11,7 +11,11 @@
  */
 
 if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+    $params = array('cookie_httponly' => true, 'cookie_samesite' => 'Lax');
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        $params['cookie_secure'] = true;
+    }
+    session_start($params);
 }
 
 if (empty($_SESSION['install_token'])) {
@@ -96,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) ? $_POST['
             $_SESSION['install_project'] = $project;
             $step = 3;
         } catch (PDOException $e) {
-            $error = 'Falha na conexao: ' . $e->getMessage();
+            $error = 'Falha na conexao: Verifique os dados informados.';
             $step  = 2;
         } catch (RuntimeException $e) {
             $error = $e->getMessage();
@@ -197,7 +201,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) ? $_POST['
 
             @unlink(__FILE__);
         } catch (PDOException $e) {
-            $error = 'Erro ao criar tabelas: ' . $e->getMessage();
+            error_log('[VoteSystem] install create tables: ' . $e->getMessage());
+            $error = 'Erro ao criar tabelas. Verifique as permissoes do banco.';
             $step  = 3;
         }
     }

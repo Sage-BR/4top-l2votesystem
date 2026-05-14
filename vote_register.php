@@ -64,9 +64,4 @@ $ip       = clientIp();
 $ipSource = clientIpSource();
 $result   = registerVote($login, $topId, $ip);
 
-@file_put_contents(__DIR__ . '/vote_register.log',
-    date('Y-m-d H:i:s') . " | login=$login | top_id=$topId | ip=$ip | ip_source=$ipSource | result=$result\n",
-    FILE_APPEND | LOCK_EX
-);
-
 echo json_encode(array('ok' => $result === 'ok'));

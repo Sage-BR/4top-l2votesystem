@@ -19,7 +19,9 @@ $error   = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
-    if ($action === 'add_top') {
+    if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de segurança inválido. Recarregue a página e tente novamente.';
+    } elseif ($action === 'add_top') {
         $name    = trim($_POST['top_name'] ?? '');
         $top_id  = trim($_POST['top_id'] ?? '');
         $token   = trim($_POST['top_token'] ?? '');
@@ -412,6 +414,7 @@ renderNav();
               <td>
                 <form method="POST"
                   onsubmit="return confirm(window.vsI18n ? window.vsI18n.t('confirm_remove_reward') : 'Remover este reward?')">
+                  <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                   <input type="hidden" name="action" value="remove_reward">
                   <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
                   <button class="btn btn-danger btn-sm" type="submit">🗑</button>

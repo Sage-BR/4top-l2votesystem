@@ -23,15 +23,25 @@ function floodCheck($ip, $top) {
     $now  = time();
     $data = array('count' => 0, 'window_start' => $now);
 
-    if (file_exists($key)) {
-        $raw = @json_decode(file_get_contents($key), true);
-        if ($raw && ($now - $raw['window_start']) < FLOOD_WINDOW) {
-            $data = $raw;
+    $fp = @fopen($key, 'c+');
+    if ($fp) {
+        if (flock($fp, LOCK_EX)) {
+            $raw = @json_decode(stream_get_contents($fp), true);
+            if ($raw && ($now - $raw['window_start']) < FLOOD_WINDOW) {
+                $data = $raw;
+            }
+            $data['count']++;
+            ftruncate($fp, 0);
+            rewind($fp);
+            fwrite($fp, json_encode($data));
+            fflush($fp);
+            flock($fp, LOCK_UN);
         }
+        fclose($fp);
+    } else {
+        $data['count']++;
+        @file_put_contents($key, json_encode($data), LOCK_EX);
     }
-
-    $data['count']++;
-    @file_put_contents($key, json_encode($data), LOCK_EX);
 
     if ($data['count'] > FLOOD_MAX) {
         http_response_code(429);
@@ -85,6 +95,8 @@ if ($action === 'list_tops') {
         'l2toporg.php'    => array('name' => 'L2Top.org',   'site' => 'l2top.org',           'token' => true),
         'hotservers.php'  => array('name' => 'HotServers',  'site' => 'hotservers.org',      'token' => true),
         'l2rankzone.php'  => array('name' => 'L2RankZone',  'site' => 'l2rankzone.com',      'token' => true),
+
+
     ),
     ));
     exit;
@@ -226,7 +238,7 @@ abstract class TopBase {
         try {
             $dt = new DateTime($dateStr, new DateTimeZone($this->apiTimezone));
             return $dt->getTimestamp(); // sempre Unix UTC
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $this->log("parseDateToUtc falhou: '$dateStr' tz={$this->apiTimezone} err={$e->getMessage()}");
             return 0;
         }
@@ -266,7 +278,7 @@ abstract class TopBase {
         if (!function_exists('curl_init')) {
             $ctx  = stream_context_create(array(
                 'http' => array('timeout' => $this->timeout, 'ignore_errors' => true),
-                'ssl'  => array('verify_peer' => false, 'verify_peer_name' => false),
+                'ssl'  => array('verify_peer' => true, 'verify_peer_name' => true),
             ));
             $body = @file_get_contents($url, false, $ctx);
             return $body !== false ? $body : false;
@@ -283,8 +295,8 @@ abstract class TopBase {
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
             CURLOPT_CUSTOMREQUEST  => 'GET',
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
         ) + $extra);
 
         $body = curl_exec($ch);
@@ -416,7 +428,7 @@ class L2JBrasilTop extends TopBase {
         if (!$body) return TopResult::fail('L2JBrasil inacessível');
 
         $data = $this->decodeJson($body);
-        if (!isset($data['vote'])) return TopResult::fail('L2JBrasil: resposta inválida');
+        if ($data === null || !isset($data['vote'])) return TopResult::fail('L2JBrasil: resposta inválida');
 
         // Normaliza — pode vir objeto único ou array
         $votes = isset($data['vote'][0]) ? $data['vote'] : [$data['vote']];
@@ -426,8 +438,9 @@ class L2JBrasilTop extends TopBase {
             $hours  = (float)($vote['hours_since_vote'] ?? 99);
             $date   = $vote['date']                     ?? '0';
             $voteTs = $this->parseDateToUtc($date);
+            $playerId = $vote['player_id'] ?? 'N/A';
 
-            $this->log("status=$status | hours=$hours | player_id={$vote['player_id']} | ip=$ip | login=$login");
+            $this->log("status=$status | hours=$hours | player_id=$playerId | ip=$ip | login=$login");
 
             if ($status === '1' && $hours >= 0 && $hours < 12) {
                 return TopResult::ok($voteTs ?: time(), $vote);
@@ -557,8 +570,8 @@ class L2NetworkTop extends TopBase {
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => $this->timeout,
             CURLOPT_CONNECTTIMEOUT => $this->timeout,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
         ));
         $body = curl_exec($ch);
         $err  = curl_error($ch);

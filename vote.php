@@ -33,6 +33,10 @@ try {
         }
 
         if ($_POST['action'] === 'check_votes') {
+            if (!verifyCsrf(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '')) {
+                echo json_encode(array('status' => 'error', 'msg' => '❌ Requisição inválida.'));
+                exit;
+            }
             $hwid = isset($_POST['hwid']) ? trim($_POST['hwid']) : '';
             echo json_encode(checkVotes($login, $ip, $hwid));
             exit;
@@ -105,7 +109,7 @@ try {
         }
 
         if ($can_vote && $lastClaim) {
-            $secs_since_claim = time() - strtotime($lastClaim['claimed_at']);
+            $secs_since_claim = time() - (new DateTime($lastClaim['claimed_at'], new DateTimeZone('UTC')))->getTimestamp();
             $cooldown_left    = max(0, 43200 - $secs_since_claim);
             if ($cooldown_left > 0) {
                 $can_vote = false;
@@ -268,13 +272,14 @@ foreach ($tops_status as $idx => $top):
       <div style="font-size:.82rem;color:var(--text-dim);margin-bottom:1rem" data-i18n="claim_vote_all">Vote em todos os tops e clique abaixo para verificar.</div>
 
       <div id="stepCheck">
+        <input type="hidden" id="checkCsrfToken" value="<?= e(csrfToken()) ?>">
         <button id="checkBtn" onclick="doCheckVotes(this)"
           <?= !empty($anticheatBlocked) ? 'disabled' : '' ?>
           style="background:linear-gradient(135deg,#c9a84c,#a07830);color:#0a0a0f;font-weight:700;font-size:1rem;
                  padding:.75rem 2.5rem;border:none;border-radius:6px;cursor:pointer;letter-spacing:.05em;
                  box-shadow:0 4px 20px rgba(201,168,76,.3);transition:all .2s"
           data-i18n="btn_check_votes">
-          <?= $brandIcon ?> Verificar Votos
+          Verificar Votos
         </button>
       </div>
 
@@ -539,6 +544,7 @@ function doCheckVotes(btn) {
     getFingerprint().then(function(hwid) {
         var fd = new FormData();
         fd.append('action', 'check_votes');
+        fd.append('csrf_token', document.getElementById('checkCsrfToken').value);
         fd.append('hwid', hwid || '');
         ajax('vote.php', fd, function(res) {
             if (res.status === 'ok') {
@@ -561,6 +567,7 @@ function doCheckVotes(btn) {
     }).catch(function() {
         var fd = new FormData();
         fd.append('action', 'check_votes');
+        fd.append('csrf_token', document.getElementById('checkCsrfToken').value);
         fd.append('hwid', '');
         ajax('vote.php', fd, function(res) {
             if (res.status === 'ok') {

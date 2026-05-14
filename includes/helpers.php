@@ -90,7 +90,7 @@ class RemoteTopApi {
         if (isset($data['voted']) && $data['voted'] === true) {
             $vt = isset($data['voteTime']) ? (int)$data['voteTime'] : 0;
             // Se voteTime parece um IP (muito maior que timestamp UNIX), usa time()
-            if ($vt > 10000000000) { $vt = 0; }
+            if ($vt > 5000000000) { $vt = 0; }
             return $this->ok($vt);
         }
 
@@ -126,7 +126,7 @@ class RemoteTopApi {
 
         $ctx = stream_context_create(array(
             'http' => array('timeout' => $this->timeout, 'ignore_errors' => true),
-            'ssl'  => array('verify_peer' => false, 'verify_peer_name' => false),
+            'ssl'  => array('verify_peer' => true, 'verify_peer_name' => true),
         ));
         $body = @file_get_contents($url, false, $ctx);
         if ($body === false || trim($body) === '') return null;
@@ -418,7 +418,7 @@ function registerVote($login, $top_id, $ip) {
         );
         $stmt->execute(array($login, $ip, $top_id));
         return 'ok';
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         error_log('[VoteSystem] registerVote error: ' . $e->getMessage());
         return 'error';
     }
@@ -467,7 +467,7 @@ function checkVotes($login, $ip, $hwid = '') {
         $localVote = getLastVote($login, $t['id']);
         if ($localVote && $localVote['seconds_ago'] < 43200) {
             $voted = true;
-            $voteTime = strtotime($localVote['voted_at']);
+            $voteTime = (new DateTime($localVote['voted_at'], new DateTimeZone('UTC')))->getTimestamp();
         }
 
         // 2. Se não achou localmente, tenta a API do top
@@ -479,8 +479,6 @@ function checkVotes($login, $ip, $hwid = '') {
                     $voted = true;
                     $voteTime = $result->voteTime;
                 }
-            } else {
-                $voted = true; // Sem API configurada = aceita (ex: tops só link)
             }
         }
 
@@ -556,37 +554,39 @@ function claimReward($login, $objId, $hwid = null) {
 
     $db = getDB();
 
-    // Double-check cooldown: verifica login E hwid
-    $chk = $db->prepare(
-        "SELECT claimed_at FROM 4top_reward_claims
-         WHERE (login = ? OR (hwid IS NOT NULL AND hwid != '' AND hwid = ?))
-         AND claimed_at > DATE_SUB(NOW(), INTERVAL 12 HOUR)
-         ORDER BY claimed_at DESC LIMIT 1"
-    );
-    $chk->execute(array($login, $hwid ?: null));
-    if ($chk->fetch()) {
-        return array('status' => 'cooldown', 'msg' => '⏳ Você já coletou sua recompensa nas últimas 12 horas.');
-    }
-
     try {
         $db->beginTransaction();
 
-        // Registra votos confirmados
+        // Cooldown check dentro da transação com FOR UPDATE
+        $chk = $db->prepare(
+            "SELECT claimed_at FROM 4top_reward_claims
+             WHERE (login = ? OR (hwid IS NOT NULL AND hwid != '' AND hwid = ?))
+             AND claimed_at > DATE_SUB(NOW(), INTERVAL 12 HOUR)
+             ORDER BY claimed_at DESC LIMIT 1 FOR UPDATE"
+        );
+        $chk->execute(array($login, $hwid ?: null));
+        if ($chk->fetch()) {
+            $db->rollBack();
+            return array('status' => 'cooldown', 'msg' => '⏳ Você já coletou sua recompensa nas últimas 12 horas.');
+        }
+
+        // Registra votos confirmados com o timestamp real do voto
         $stmtLog = $db->prepare(
             "INSERT INTO 4top_log (login, ip, top_id, voted_at, rewarded)
-             VALUES (?, ?, ?, NOW(), 0)"
+             VALUES (?, ?, ?, FROM_UNIXTIME(?), 0)"
         );
         $ip = clientIp();
         foreach ($confirmed as $top_id => $voteTime) {
             if (!hasVotedRecently($login, (int)$top_id)) {
-                $stmtLog->execute(array($login, $ip ?: 'N/A', (int)$top_id));
+                $voteTs = (int)$voteTime > 0 ? (int)$voteTime : time();
+                $stmtLog->execute(array($login, $ip ?: 'N/A', (int)$top_id, $voteTs));
             }
         }
 
-// Registra o claim com HWID
-    $db->prepare(
-        "INSERT INTO 4top_reward_claims (login, claimed_at, hwid) VALUES (?, NOW(), ?)"
-    )->execute(array($login, $hwid ?: null));
+        // Registra o claim com HWID
+        $db->prepare(
+            "INSERT INTO 4top_reward_claims (login, claimed_at, hwid) VALUES (?, NOW(), ?)"
+        )->execute(array($login, $hwid ?: null));
 
         // Entrega rewards no personagem escolhido
         $rewards = getRewards();
@@ -605,10 +605,11 @@ function claimReward($login, $objId, $hwid = null) {
 
         // Limpa sessão
         unset($_SESSION['vs_confirmed_votes']);
+        unset($_SESSION['vs_confirmed_hwid']);
 
         return array('status' => 'ok', 'msg' => '🎁 Recompensa entregue com sucesso!');
 
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         $db->rollBack();
         error_log('[VoteSystem] claimReward error: ' . $e->getMessage());
         return array('status' => 'error', 'msg' => '❌ Erro ao entregar recompensa. Tente novamente.');
@@ -680,6 +681,7 @@ function e($str) {
 
 /** Redirect com parâmetro GET */
 function redirectWith($url, $msg_key, $msg_val) {
-    header('Location: ' . $url . '?' . urlencode($msg_key) . '=' . urlencode($msg_val));
+    $sep = (strpos($url, '?') === false) ? '?' : '&';
+    header('Location: ' . $url . $sep . urlencode($msg_key) . '=' . urlencode($msg_val));
     exit;
 }

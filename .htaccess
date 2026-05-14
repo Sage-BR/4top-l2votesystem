@@ -1,8 +1,14 @@
 # Bloqueia acesso a arquivos sensíveis
-<FilesMatch "^(config\.php|\.env)">
+<FilesMatch "^(config\.php|\.env|voteapi\.log|vote_register\.log)">
     Order allow,deny
     Deny from all
 </FilesMatch>
 
 # Bloqueia visualização de diretórios
 Options -Indexes
+
+# Protege o diretório includes
+<IfModule mod_rewrite.c>
+    RewriteRule ^includes/ - [F,L]
+    RewriteRule ^engine/ - [F,L]
+</IfModule>

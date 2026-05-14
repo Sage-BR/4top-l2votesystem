@@ -22,8 +22,6 @@ function getDB() {
     } catch (PDOException $e) {
         error_log('[VoteSystem] DB connection failed: ' . $e->getMessage());
         http_response_code(503);
-        // ── DEV: mostra o detalhe do erro ─────────────────────────────────────
-        // Remova o "detail" antes de ir para produção
         echo json_encode(array(
             'error'   => true,
             'message' => 'Service temporarily unavailable.',

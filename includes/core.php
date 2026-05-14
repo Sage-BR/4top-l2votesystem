@@ -331,7 +331,11 @@ function clientIpSource() {
 
 function startSession() {
     if (session_status() === PHP_SESSION_NONE) {
-        session_start(array('cookie_httponly' => true, 'cookie_samesite' => 'Lax'));
+        $params = array('cookie_httponly' => true, 'cookie_samesite' => 'Lax');
+        if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+            $params['cookie_secure'] = true;
+        }
+        session_start($params);
     }
 }
 

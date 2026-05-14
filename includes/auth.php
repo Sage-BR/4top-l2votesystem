@@ -14,11 +14,14 @@ function isLoggedIn() {
 }
 
 /**
- * Admin: access_level >= 1
+ * Admin: access_level >= threshold (configurável via VS_ADMIN_ACCESS_LEVEL)
  * aCis: accounts.access_level = 0 para jogadores, >= 1 para GMs/admins.
+ * Por padrão, qualquer GM (access_level >= 1) tem acesso ao painel.
+ * Defina VS_ADMIN_ACCESS_LEVEL em config.php para restringir (ex: 100 para Head GM+).
  */
 function isAdmin() {
-    return isLoggedIn() && currentAccessLevel() >= 1;
+    $threshold = defined('VS_ADMIN_ACCESS_LEVEL') ? (int)VS_ADMIN_ACCESS_LEVEL : 1;
+    return isLoggedIn() && currentAccessLevel() >= $threshold;
 }
 
 function requireLogin() {

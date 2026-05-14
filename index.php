@@ -54,23 +54,40 @@ $error = '';
 $msg   = isset($_GET['msg']) ? $_GET['msg'] : '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $login    = trim(isset($_POST['login'])    ? $_POST['login']    : '');
-    $password =      isset($_POST['password']) ? $_POST['password'] : '';
-
-    if (empty($login) || empty($password)) {
-        $error = 'Preencha o login e a senha.';
+    // CSRF check
+    if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de segurança inválido. Recarregue a página.';
     } else {
-        try {
-            $user = gameLogin($login, $password);
-            if ($user) {
-                sessionLogin($user);
-                header('Location: vote.php');
-                exit;
+        $login    = trim(isset($_POST['login'])    ? $_POST['login']    : '');
+        $password =      isset($_POST['password']) ? $_POST['password'] : '';
+
+        if (empty($login) || empty($password)) {
+            $error = 'Preencha o login e a senha.';
+        } else {
+            // Rate limiting: max 5 tentativas por IP a cada 5 minutos
+            $rateKey = 'vs_login_rate_' . md5(clientIp());
+            $attempts = $_SESSION[$rateKey] ?? array();
+            $now = time();
+            $attempts = array_values(array_filter($attempts, function($t) use ($now) { return $t > ($now - 300); }));
+            if (count($attempts) >= 5) {
+                $error = 'Muitas tentativas de login. Tente novamente em alguns minutos.';
+            } else {
+                try {
+                    $user = gameLogin($login, $password);
+                    if ($user) {
+                        unset($_SESSION[$rateKey]);
+                        sessionLogin($user);
+                        header('Location: vote.php');
+                        exit;
+                    }
+                    $attempts[] = $now;
+                    $_SESSION[$rateKey] = $attempts;
+                    $error = 'Login ou senha incorretos.';
+                } catch (Throwable $e) {
+                    error_log('[VoteSystem] login error: ' . $e->getMessage());
+                    $error = 'Falha ao autenticar. Verifique o banco de dados.';
+                }
             }
-            $error = 'Login ou senha incorretos.';
-        } catch (Throwable $e) {
-            error_log('[VoteSystem] login error: ' . $e->getMessage());
-            $error = 'Falha ao autenticar. Verifique o banco de dados.';
         }
     }
 }

@@ -19,6 +19,12 @@ define('LAYOUT_FAVICON', 'assets/favicon.png');
 // ── nome no navbar ────────────────────────────────────────────
 define('LAYOUT_BRAND_URL',  'vote.php');
 
+// ── Ícone do brand (usado em botões) ────────────────────────────────
+define('LAYOUT_BRAND_ICON', '⚔');
+
+// ── Exibir IP do cliente no rodapé? (privacidade) ──────────────────
+define('LAYOUT_SHOW_IP', false);
+
 // ── Rodapé ────────────────────────────────────────────────────────────
 define('LAYOUT_FOOTER', 'VoteSystem <span class="text-gold">4Top Servers</span>');
 

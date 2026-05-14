@@ -183,10 +183,11 @@ if (!function_exists('anticheatAnalyze')) {
 
     function anticheatQueryIpApi($ip) {
         $timeout = defined('VS_ANTICHEAT_IPAPI_TIMEOUT') ? (int)VS_ANTICHEAT_IPAPI_TIMEOUT : 4;
-        $url = 'http://ip-api.com/json/' . rawurlencode($ip) . '?fields=status,message,proxy,hosting,mobile,query';
+        $url = 'https://ip-api.com/json/' . rawurlencode($ip) . '?fields=status,message,proxy,hosting,mobile,query';
 
         $ctx = stream_context_create(array(
             'http' => array('timeout' => $timeout, 'ignore_errors' => true),
+            'ssl'  => array('verify_peer' => true, 'verify_peer_name' => true),
         ));
         $body = @file_get_contents($url, false, $ctx);
         if ($body === false || trim($body) === '') {
