@@ -92,9 +92,6 @@ try {
                     if ($voteTime === 0 || $secs_ago_api < 43200) {
                         $cooldown_left = ($voteTime === 0) ? 0 : 43200 - $secs_ago_api;
                         $can_vote      = false;
-                        if (!hasVotedRecently($login, $top['id'])) {
-                            registerVote($login, $top['id'], $ip);
-                        }
                     }
                 }
             }

@@ -275,9 +275,14 @@ abstract class TopBase {
     }
 
     private function _curl($url, $extra = array()) {
+        $userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
         if (!function_exists('curl_init')) {
             $ctx  = stream_context_create(array(
-                'http' => array('timeout' => $this->timeout, 'ignore_errors' => true),
+                'http' => array(
+                    'timeout' => $this->timeout,
+                    'ignore_errors' => true,
+                    'header' => "User-Agent: " . $userAgent . "\r\n"
+                ),
                 'ssl'  => array('verify_peer' => true, 'verify_peer_name' => true),
             ));
             $body = @file_get_contents($url, false, $ctx);
@@ -297,6 +302,7 @@ abstract class TopBase {
             CURLOPT_CUSTOMREQUEST  => 'GET',
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_USERAGENT      => $userAgent,
         ) + $extra);
 
         $body = curl_exec($ch);
@@ -409,13 +415,12 @@ class L2JBrasilTop extends TopBase {
     const VOTE_WINDOW      = 43200;
 
     public function checkVote($ip, $login = '') {
-        if (empty($this->token))             return TopResult::fail('L2JBrasil: API Key não configurada');
         if (empty($this->serverId))          return TopResult::fail('L2JBrasil: Server ID não configurado');
         if (empty($ip) || $ip === 'UNKNOWN') return TopResult::fail('L2JBrasil: IP obrigatório');
 
-        // player_id = login do char (preferencial) ou IP do jogador (fallback)
+        // player_id = MD5 do login do char (preferencial) ou vazio (fallback com base no login)
         // username  = slug do servidor
-        $identifier = !empty($login) ? $login : $ip;
+        $identifier = !empty($login) ? md5($login) : '';
 
         $url = self::API_URL . '?' . http_build_query([
             'player_id' => $identifier,
@@ -452,9 +457,9 @@ class L2JBrasilTop extends TopBase {
     }
 
     public function getVoteUrl($login = '') {
-        // Com login: player_id = login do char — l2jbrasil associa voto ao char (CGNAT safe)
-        // Sem login: player_id = API key — comportamento padrão
-        $playerId = !empty($login) ? $login : $this->token;
+        // Com login: player_id = MD5 do login do char (32 caracteres) — l2jbrasil associa voto ao char (CGNAT safe)
+        // Sem login: sem player_id (vazio)
+        $playerId = !empty($login) ? md5($login) : '';
         return self::VOTE_URL . '?a=in&u=' . urlencode($this->serverId)
              . '&player_id=' . urlencode($playerId);
     }
@@ -550,12 +555,14 @@ class L2NetworkTop extends TopBase {
     }
 
     private function httpPost($postData) {
+        $userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
         if (!function_exists('curl_init')) {
             $ctx = stream_context_create(array(
                 'http' => array(
                     'timeout' => $this->timeout,
                     'method'  => 'POST',
-                    'header'  => "Content-Type: application/x-www-form-urlencoded\r\n",
+                    'header'  => "Content-Type: application/x-www-form-urlencoded\r\n" .
+                                 "User-Agent: " . $userAgent . "\r\n",
                     'content' => $postData,
                 ),
             ));
@@ -572,6 +579,7 @@ class L2NetworkTop extends TopBase {
             CURLOPT_CONNECTTIMEOUT => $this->timeout,
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_USERAGENT      => $userAgent,
         ));
         $body = curl_exec($ch);
         $err  = curl_error($ch);
