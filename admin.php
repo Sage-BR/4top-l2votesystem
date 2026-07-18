@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $url_templates = array(
             'l2jbrasil.php'   => 'https://top.l2jbrasil.com/index.php?a=in&s={SERVER_ID}',
-            '4top.php'        => 'https://top.4teambr.com/index.php?a=in&s={SERVER_ID}',
+            '4top.php'        => 'https://top.4teambr.com/index.php?a=in&u={SERVER_ID}',
             'l2toporg.php'    => 'https://l2top.org/server/{SERVER_ID}/',
             'l2network.php'   => 'https://l2network.eu/index.php?a=in&u={SERVER_ID}',
         );
@@ -63,9 +63,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif ($action === 'remove_top') {
         $id = (int)($_POST['id'] ?? 0);
         if ($id > 0) {
-            $stmt = $db->prepare("DELETE FROM 4top_tops WHERE id = ?");
-            $stmt->execute(array($id));
-            $success = 'Top removido.';
+            $chk = $db->prepare("SELECT top_btn FROM 4top_tops WHERE id = ? LIMIT 1");
+            $chk->execute(array($id));
+            $row = $chk->fetch();
+            if ($row && ($row['top_btn'] ?? '') === '4top.php') {
+                $error = 'O 4TOP não pode ser removido.';
+            } else {
+                $stmt = $db->prepare("DELETE FROM 4top_tops WHERE id = ?");
+                $stmt->execute(array($id));
+                $success = 'Top removido.';
+            }
         }
     }
 

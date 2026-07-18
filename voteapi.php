@@ -11,7 +11,21 @@
 // =============================================================================
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
+
+// CORS: reflete a própria origem (self-hosted — cada dono usa seu domínio)
+$corsOrigin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
+if ($corsOrigin !== '' && isset($_SERVER['HTTP_HOST'])) {
+    $scheme   = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $expected = $scheme . '://' . $_SERVER['HTTP_HOST'];
+    $port     = (int)($_SERVER['SERVER_PORT'] ?? 80);
+    if (!in_array($port, array(80, 443), true)) {
+        $expected .= ':' . $port;
+    }
+    if (strncmp($corsOrigin, $expected, strlen($expected)) === 0) {
+        header('Access-Control-Allow-Origin: ' . $corsOrigin);
+        header('Vary: Origin');
+    }
+}
 
 // ── Anti-Flood ────────────────────────────────────────────────────────────────
 define('FLOOD_MAX',    15);

@@ -77,15 +77,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) ? $_POST['
             );
             unset($pdo);
 
-            $esc  = function($s) { return addslashes($s); };
             $cfg  = "<?php\n";
             $cfg .= "// VoteSystem 4Top Servers - Config\n";
             $cfg .= "// NAO compartilhe este arquivo!\n\n";
-            $cfg .= "define('DB_HOST',      '" . $esc($db_host) . "');\n";
-            $cfg .= "define('DB_USER',      '" . $esc($db_user) . "');\n";
-            $cfg .= "define('DB_PASS',      '" . $esc($db_pass) . "');\n";
-            $cfg .= "define('DB_NAME',      '" . $esc($db_name) . "');\n";
-            $cfg .= "define('GAME_PROJECT', '" . $esc($project) . "');\n";
+            $cfg .= "define('DB_HOST',      " . var_export($db_host, true) . ");\n";
+            $cfg .= "define('DB_USER',      " . var_export($db_user, true) . ");\n";
+            $cfg .= "define('DB_PASS',      " . var_export($db_pass, true) . ");\n";
+            $cfg .= "define('DB_NAME',      " . var_export($db_name, true) . ");\n";
+            $cfg .= "define('GAME_PROJECT', " . var_export($project, true) . ");\n";
             $cfg .= "define('VS_ANTICHEAT_ENABLED', true);\n";
             $cfg .= "define('VS_ANTICHEAT_RISK_BLOCK', 70);\n";
             $cfg .= "define('VS_ANTICHEAT_CACHE_SEC', 900);\n";

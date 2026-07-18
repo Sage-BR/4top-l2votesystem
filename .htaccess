@@ -7,8 +7,16 @@
 # Bloqueia visualização de diretórios
 Options -Indexes
 
-# Protege o diretório includes
+# Protege os diretórios includes e engine
 <IfModule mod_rewrite.c>
     RewriteRule ^includes/ - [F,L]
     RewriteRule ^engine/ - [F,L]
 </IfModule>
+
+# ── IIS / Windows Server ─────────────────────────────────────────
+# Se estiver usando IIS, o arquivo web.config na raiz já contém as
+# mesmas regras de bloqueio. Nenhuma ação adicional necessária.
+# ── Nginx ─────────────────────────────────────────────────────────
+# Adicione ao seu server block:
+#   location ~ ^/(includes|engine)/ { deny all; return 404; }
+#   location ~ /(config\.php|\.env|voteapi\.log|vote_register\.log)$ { deny all; }

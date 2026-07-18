@@ -109,24 +109,21 @@ class RemoteTopApi {
     }
 
     private function call($params) {
-        // URL absoluta para API local - abordagem robusta
-        $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') || 
-                  (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') 
-                  ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
-        
-        $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
-        $scriptDir = dirname($requestUri);
-        if ($scriptDir === '.' || $scriptDir === '') {
-            $scriptDir = '/';
-        }
-        
-        $baseUrl = $scheme . '://' . $host . $scriptDir;
-        $url = rtrim($baseUrl, '/') . '/voteapi.php?' . http_build_query($params);
+        // Chama voteapi.php via 127.0.0.1 para eliminar SSRF via Host header
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $port   = (int)($_SERVER['SERVER_PORT'] ?? 80);
+        $portSuffix = ($port === 80 || $port === 443) ? '' : ':' . $port;
+
+        // Descobre o caminho relativo a partir do SCRIPT_NAME
+        $scriptName = $_SERVER['SCRIPT_NAME'] ?? '/vote.php';
+        $baseDir    = rtrim(dirname($scriptName), '/\\');
+        if ($baseDir === '.' || $baseDir === '\\') $baseDir = '';
+
+        $url = $scheme . '://127.0.0.1' . $portSuffix . $baseDir . '/voteapi.php?' . http_build_query($params);
 
         $ctx = stream_context_create(array(
             'http' => array('timeout' => $this->timeout, 'ignore_errors' => true),
-            'ssl'  => array('verify_peer' => true, 'verify_peer_name' => true),
+            'ssl'  => array('verify_peer' => true, 'verify_peer_name' => false),
         ));
         $body = @file_get_contents($url, false, $ctx);
         if ($body === false || trim($body) === '') return null;
@@ -163,7 +160,14 @@ function getTopVoteUrl($top, $login = '') {
     }
     // Fallback para URL do banco se API falhar ou retornar '#'
     $dbUrl = isset($top['url']) ? trim($top['url']) : '';
-    return ($apiUrl && $apiUrl !== '#') ? $apiUrl : ($dbUrl ?: '#');
+    $url = ($apiUrl && $apiUrl !== '#') ? $apiUrl : ($dbUrl ?: '#');
+
+    // Corrige parâmetro do 4TOP: a API do 4TeamBR usa &u=, não &s=
+    if (!empty($top['top_btn']) && $top['top_btn'] === '4top.php') {
+        $url = preg_replace('/\ba=in&s=/i', 'a=in&u=', $url);
+    }
+
+    return $url;
 }
 
 /**
@@ -238,6 +242,9 @@ function ensureVoteSchema() {
         if ((int)$chk->fetchColumn() === 0) {
             $db->exec("ALTER TABLE `4top_reward_claims` ADD COLUMN `hwid` VARCHAR(128) DEFAULT NULL, ADD INDEX `idx_hwid` (`hwid`)");
         }
+
+        // Migration: corrige parâmetro da URL do 4TOP (&s= → &u=)
+        $db->exec("UPDATE 4top_tops SET url = REPLACE(url, 'a=in&s=', 'a=in&u=') WHERE top_btn = '4top.php' AND url LIKE '%a=in&s=%'");
 
         $stmt = $db->prepare("SELECT setting_value FROM 4top_settings WHERE setting_key = ? LIMIT 1");
         $stmt->execute(array('anticheat_enabled'));
