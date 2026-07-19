@@ -331,11 +331,16 @@ function clientIpSource() {
 
 function startSession() {
     if (session_status() === PHP_SESSION_NONE) {
+        $hadCookie = isset($_COOKIE[session_name()]);
         $params = array('cookie_httponly' => true, 'cookie_samesite' => 'Lax');
         if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
             $params['cookie_secure'] = true;
         }
         session_start($params);
+        // Regenera se não havia cookie (evita session fixation em sessões novas)
+        if (!$hadCookie) {
+            session_regenerate_id(true);
+        }
     }
 }
 
@@ -368,5 +373,6 @@ function csrfToken() {
 
 function verifyCsrf($token) {
     startSession();
+    $token = is_string($token) ? $token : '';
     return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
 }

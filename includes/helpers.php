@@ -129,13 +129,14 @@ class RemoteTopApi {
         $query  = http_build_query($params);
 
         // Tenta com HTTP_HOST original (funciona na maioria dos servidores)
+        // verifyHost=true: certificado TLS precisa bater com o hostname
         $url  = $scheme . '://' . $hostname . $baseDir . '/voteapi.php?' . $query;
-        $body = $this->httpGet($url);
+        $body = $this->httpGet($url, $hostname !== '127.0.0.1');
 
         // Fallback: 127.0.0.1 (virtual hosts que rejeitam hostname externo)
         if ($body === null) {
             $url  = $scheme . '://127.0.0.1' . $portSuffix . $baseDir . '/voteapi.php?' . $query;
-            $body = $this->httpGet($url);
+            $body = $this->httpGet($url, false);
         }
 
         if ($body === null || trim($body) === '') return null;
@@ -143,10 +144,10 @@ class RemoteTopApi {
         return (json_last_error() === JSON_ERROR_NONE) ? $data : null;
     }
 
-    private function httpGet($url) {
+    private function httpGet($url, $verifyHost = true) {
         $ctx = stream_context_create(array(
             'http' => array('timeout' => $this->timeout, 'ignore_errors' => true),
-            'ssl'  => array('verify_peer' => true, 'verify_peer_name' => false),
+            'ssl'  => array('verify_peer' => true, 'verify_peer_name' => $verifyHost),
         ));
         return @file_get_contents($url, false, $ctx) ?: null;
     }
@@ -434,17 +435,32 @@ function countVotes($login) {
  */
 function registerVote($login, $top_id, $ip) {
     $login = trim((string)$login);
-    if (hasVotedRecently($login, $top_id)) return 'cooldown';
-
     $db = getDB();
     try {
+        $db->beginTransaction();
+
+        // SELECT FOR UPDATE — trava a linha contra race condition
+        $stmt = $db->prepare(
+            "SELECT id FROM 4top_log
+             WHERE login = ? AND top_id = ?
+               AND voted_at > DATE_SUB(NOW(), INTERVAL 12 HOUR)
+             LIMIT 1 FOR UPDATE"
+        );
+        $stmt->execute(array($login, $top_id));
+        if ($stmt->fetch()) {
+            $db->rollBack();
+            return 'cooldown';
+        }
+
         $stmt = $db->prepare(
             "INSERT INTO 4top_log (login, ip, top_id, voted_at, rewarded)
              VALUES (?, ?, ?, NOW(), 0)"
         );
         $stmt->execute(array($login, $ip, $top_id));
+        $db->commit();
         return 'ok';
     } catch (Throwable $e) {
+        if ($db->inTransaction()) $db->rollBack();
         error_log('[VoteSystem] registerVote error: ' . $e->getMessage());
         return 'error';
     }

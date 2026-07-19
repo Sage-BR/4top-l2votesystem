@@ -21,7 +21,7 @@ if ($corsOrigin !== '' && isset($_SERVER['HTTP_HOST'])) {
     if (!in_array($port, array(80, 443), true)) {
         $expected .= ':' . $port;
     }
-    if (strncmp($corsOrigin, $expected, strlen($expected)) === 0) {
+    if ($corsOrigin === $expected) {
         header('Access-Control-Allow-Origin: ' . $corsOrigin);
         header('Vary: Origin');
     }
@@ -101,17 +101,11 @@ if ($action === 'list_tops') {
     echo json_encode(array(
         'error' => false,
         'tops'  => array(
-            '4top.php'        => array('name' => '4TOP',        'site' => 'top.4teambr.com',   'token' => false),
-            'l2jbrasil.php'   => array('name' => 'L2JBrasil',   'site' => 'top.l2jbrasil.com', 'token' => true),
-            'hopzone.php'     => array('name' => 'Hopzone.net', 'site' => 'l2.hopzone.net',     'token' => true),
-        'hopzoneu.php'    => array('name' => 'Hopzone.eu',  'site' => 'hopzone.eu',          'token' => true),
-        'itopz.php'       => array('name' => 'iTopZ',       'site' => 'itopz.com',           'token' => true),
-        'l2toporg.php'    => array('name' => 'L2Top.org',   'site' => 'l2top.org',           'token' => true),
-        'hotservers.php'  => array('name' => 'HotServers',  'site' => 'hotservers.org',      'token' => true),
-        'l2rankzone.php'  => array('name' => 'L2RankZone',  'site' => 'l2rankzone.com',      'token' => true),
-
-
-    ),
+            '4top.php'      => array('name' => '4TOP',      'site' => 'top.4teambr.com', 'token' => false),
+            'l2jbrasil.php' => array('name' => 'L2JBrasil', 'site' => 'top.l2jbrasil.com', 'token' => true),
+            'l2toporg.php'  => array('name' => 'L2Top.org', 'site' => 'l2top.org',       'token' => true),
+            'l2network.php' => array('name' => 'L2Network', 'site' => 'l2network.eu',    'token' => true),
+        ),
     ));
     exit;
 }

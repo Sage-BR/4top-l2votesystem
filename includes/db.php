@@ -5,7 +5,15 @@
  */
 function getDB() {
     static $pdo = null;
-    if ($pdo !== null) return $pdo;
+    if ($pdo !== null) {
+        try {
+            $pdo->query('SELECT 1');
+            return $pdo;
+        } catch (PDOException $e) {
+            error_log('[VoteSystem] DB reconnect triggered: ' . $e->getMessage());
+            $pdo = null;
+        }
+    }
     try {
         $pdo = new PDO(
             "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",

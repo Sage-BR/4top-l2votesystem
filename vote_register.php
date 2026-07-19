@@ -19,13 +19,28 @@ require_once __DIR__ . '/includes/helpers.php';
 startSession();
 header('Content-Type: application/json');
 
+// CORS: mesma origem do request (self-hosted)
+$corsOrigin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
+if ($corsOrigin !== '' && isset($_SERVER['HTTP_HOST'])) {
+    $scheme   = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $expected = $scheme . '://' . $_SERVER['HTTP_HOST'];
+    $port     = (int)($_SERVER['SERVER_PORT'] ?? 80);
+    if (!in_array($port, array(80, 443), true)) {
+        $expected .= ':' . $port;
+    }
+    if ($corsOrigin === $expected) {
+        header('Access-Control-Allow-Origin: ' . $corsOrigin);
+        header('Vary: Origin');
+    }
+}
+
 $login = currentLogin();
 if (!$login) {
     echo json_encode(array('ok' => false, 'msg' => 'not_logged'));
     exit;
 }
 
-$csrf = isset($_GET['csrf']) ? $_GET['csrf'] : '';
+$csrf = isset($_GET['csrf']) ? (string)$_GET['csrf'] : '';
 if (!verifyCsrf($csrf)) {
     echo json_encode(array('ok' => false, 'msg' => 'csrf_invalid'));
     exit;

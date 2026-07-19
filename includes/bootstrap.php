@@ -92,7 +92,7 @@ function renderNav() {
         echo '<span>' . htmlspecialchars($login) . '</span>';
         if ($isAdm) echo '<span class="badge-admin">ADMIN</span>';
         echo '</div>';
-        echo '<a href="logout.php" class="btn btn-ghost btn-sm" data-i18n="nav_logout">Sair</a>';
+        echo '<a href="logout.php?csrf=' . e(csrfToken()) . '" class="btn btn-ghost btn-sm" data-i18n="nav_logout">Sair</a>';
     } else {
         echo '<a href="index.php" class="btn btn-primary btn-sm" data-i18n="nav_login">Login</a>';
     }
