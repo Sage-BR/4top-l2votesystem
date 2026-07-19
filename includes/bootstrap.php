@@ -52,7 +52,7 @@ function renderHead($pageTitle = '') {
     if (trim($extraCss)) echo '<style>' . $extraCss . '</style>';
     // i18n: localForage (IndexedDB/WebSQL/localStorage) + sistema de idiomas
     echo '<script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" integrity="sha384-MTDrIlFOzEqpmOxY6UIA/1Zkh0a64UlmJ6R0UrZXqXCPx99siPGi8EmtQjIeCcTH"></script>';
-    echo '<script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@4/dist/fp.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" integrity="sha384-krE1YAVuJx0qn+hR6KwuVnQtbZIATYwWHVaIy7nXFZRyOrBxBfg81m+cqtbljaYo"></script>';
+    echo '<script src="https://unpkg.com/@fingerprintjs/fingerprintjs@4/dist/fp.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>';
     echo '<script src="assets/js/i18n.js"></script>';
     echo '</head>';
     echo '<body>';
@@ -68,7 +68,7 @@ function renderNav() {
 
     echo '<nav class="navbar">';
     echo '<a href="' . htmlspecialchars($brandUrl) . '" class="nav-brand">';
-    echo '<img src="https://i.imgur.com/eF2disk.png" alt="VoteSystem" style="height:50px;width:auto;display:block">';
+    echo '<img src="https://i.imgur.com/eF2disk.png" alt="VoteSystem" style="height:50px;width:auto;display:block" loading="eager">';
     echo '</a>';
     echo '<ul class="nav-links">';
     echo '<li><a href="vote.php" class="' . ($curPage === 'vote.php' ? 'active' : '') . '" data-i18n="nav_vote">⚜ Votar</a></li>';

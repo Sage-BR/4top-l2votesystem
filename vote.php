@@ -238,13 +238,13 @@ foreach ($tops_status as $idx => $top):
           <a href="<?= $vote_url ?>" target="_blank" rel="noopener"
             class="vote-img-btn"
             title="Votar em <?= e($top['name']) ?>">
-            <img src="<?= e($img_path) ?>" alt="<?= e($top['name']) ?>"
+            <img src="<?= e($img_path) ?>" alt="<?= e($top['name']) ?>" loading="eager"
               onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
             <span style="display:none">⚔ Votar</span>
           </a>
           <?php else: ?>
           <div class="vote-img-btn voted-overlay" title="Já votado">
-            <img src="<?= e($img_path) ?>" alt="<?= e($top['name']) ?>"
+            <img src="<?= e($img_path) ?>" alt="<?= e($top['name']) ?>" loading="eager"
               style="opacity:.35;filter:grayscale(1)"
               onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
             <span style="display:none;opacity:.4">✓ Votado</span>

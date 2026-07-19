@@ -109,27 +109,46 @@ class RemoteTopApi {
     }
 
     private function call($params) {
-        // Chama voteapi.php via 127.0.0.1 para eliminar SSRF via Host header
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $port   = (int)($_SERVER['SERVER_PORT'] ?? 80);
+        $host   = $_SERVER['HTTP_HOST'] ?? '127.0.0.1';
+
+        // Remove porta, extrai apenas o hostname
+        $hostname = strtolower(parse_url('http://' . $host, PHP_URL_HOST) ?: '');
+        // Rejeita caracteres perigosos (SSRF básico) mas permite hostname normal
+        if ($hostname === '' || preg_match('/[<>"\'\\s]/', $hostname)) {
+            $hostname = '127.0.0.1';
+        }
+
+        $port     = (int)($_SERVER['SERVER_PORT'] ?? 80);
         $portSuffix = ($port === 80 || $port === 443) ? '' : ':' . $port;
 
-        // Descobre o caminho relativo a partir do SCRIPT_NAME
         $scriptName = $_SERVER['SCRIPT_NAME'] ?? '/vote.php';
         $baseDir    = rtrim(dirname($scriptName), '/\\');
         if ($baseDir === '.' || $baseDir === '\\') $baseDir = '';
 
-        $url = $scheme . '://127.0.0.1' . $portSuffix . $baseDir . '/voteapi.php?' . http_build_query($params);
+        $query  = http_build_query($params);
 
+        // Tenta com HTTP_HOST original (funciona na maioria dos servidores)
+        $url  = $scheme . '://' . $hostname . $baseDir . '/voteapi.php?' . $query;
+        $body = $this->httpGet($url);
+
+        // Fallback: 127.0.0.1 (virtual hosts que rejeitam hostname externo)
+        if ($body === null) {
+            $url  = $scheme . '://127.0.0.1' . $portSuffix . $baseDir . '/voteapi.php?' . $query;
+            $body = $this->httpGet($url);
+        }
+
+        if ($body === null || trim($body) === '') return null;
+        $data = @json_decode($body, true);
+        return (json_last_error() === JSON_ERROR_NONE) ? $data : null;
+    }
+
+    private function httpGet($url) {
         $ctx = stream_context_create(array(
             'http' => array('timeout' => $this->timeout, 'ignore_errors' => true),
             'ssl'  => array('verify_peer' => true, 'verify_peer_name' => false),
         ));
-        $body = @file_get_contents($url, false, $ctx);
-        if ($body === false || trim($body) === '') return null;
-
-        $data = @json_decode($body, true);
-        return (json_last_error() === JSON_ERROR_NONE) ? $data : null;
+        return @file_get_contents($url, false, $ctx) ?: null;
     }
 
     private function ok($voteTime = 0) {
@@ -162,8 +181,8 @@ function getTopVoteUrl($top, $login = '') {
     $dbUrl = isset($top['url']) ? trim($top['url']) : '';
     $url = ($apiUrl && $apiUrl !== '#') ? $apiUrl : ($dbUrl ?: '#');
 
-    // Corrige parâmetro do 4TOP: a API do 4TeamBR usa &u=, não &s=
-    if (!empty($top['top_btn']) && $top['top_btn'] === '4top.php') {
+    // Corrige parâmetro dos tops que usam &u= em vez de &s=
+    if (!empty($top['top_btn']) && in_array($top['top_btn'], array('4top.php', 'l2jbrasil.php'), true)) {
         $url = preg_replace('/\ba=in&s=/i', 'a=in&u=', $url);
     }
 
@@ -243,8 +262,8 @@ function ensureVoteSchema() {
             $db->exec("ALTER TABLE `4top_reward_claims` ADD COLUMN `hwid` VARCHAR(128) DEFAULT NULL, ADD INDEX `idx_hwid` (`hwid`)");
         }
 
-        // Migration: corrige parâmetro da URL do 4TOP (&s= → &u=)
-        $db->exec("UPDATE 4top_tops SET url = REPLACE(url, 'a=in&s=', 'a=in&u=') WHERE top_btn = '4top.php' AND url LIKE '%a=in&s=%'");
+        // Migration: corrige parâmetro das URLs (&s= → &u=) para tops que usam &u=
+        $db->exec("UPDATE 4top_tops SET url = REPLACE(url, 'a=in&s=', 'a=in&u=') WHERE top_btn IN ('4top.php','l2jbrasil.php') AND url LIKE '%a=in&s=%'");
 
         $stmt = $db->prepare("SELECT setting_value FROM 4top_settings WHERE setting_key = ? LIMIT 1");
         $stmt->execute(array('anticheat_enabled'));

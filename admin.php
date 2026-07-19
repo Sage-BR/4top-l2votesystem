@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $top_btn = basename(trim($_POST['top_btn'] ?? ''));
 
         $url_templates = array(
-            'l2jbrasil.php'   => 'https://top.l2jbrasil.com/index.php?a=in&s={SERVER_ID}',
+            'l2jbrasil.php'   => 'https://top.l2jbrasil.com/index.php?a=in&u={SERVER_ID}',
             '4top.php'        => 'https://top.4teambr.com/index.php?a=in&u={SERVER_ID}',
             'l2toporg.php'    => 'https://l2top.org/server/{SERVER_ID}/',
             'l2network.php'   => 'https://l2network.eu/index.php?a=in&u={SERVER_ID}',
