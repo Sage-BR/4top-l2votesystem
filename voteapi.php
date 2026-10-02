@@ -658,57 +658,66 @@ class L2NetworkTop extends TopBase {
     protected $apiTimezone = 'UTC';
     const API_URL          = 'https://l2network.eu/api.php';
     const VOTE_URL         = 'https://l2network.eu/index.php';
+    const VOTE_WINDOW      = 43200;
 
     public function checkVote($ip, $login = '') {
+        $login = trim((string)$login);
         if (empty($this->token)) return TopResult::fail('L2Network: API Key não configurada');
-        if (empty($login))      return TopResult::fail('L2Network: Login obrigatório para verificar');
+        if ($login === '')      return TopResult::fail('L2Network: Login obrigatório para verificar');
 
         $postData = http_build_query(array(
             'apiKey' => $this->token,
             'type'   => 2,
             'player' => $login,
-            'ip'     => $ip ?: 'UNKNOWN',
         ));
 
         $body = $this->httpPost($postData);
-        if (!$body) {
+        if ($body === false) {
             $this->log("ERRO: L2Network API inacessível");
             return TopResult::fail('L2Network API inacessível');
         }
 
-        $data = $this->decodeJson($body);
-        if (!$data) {
-            $this->log("ERRO: L2Network resposta inválida | body: $body");
+        // O protocolo retorna um inteiro em texto puro: -1, 0 ou timestamp.
+        $response = trim($body);
+        if (!preg_match('/^(?:-1|[0-9]+)$/D', $response)) {
+            $this->log('ERRO: L2Network resposta inválida (esperado inteiro em texto puro)');
             return TopResult::fail('L2Network: resposta inválida');
         }
 
-        // Resposta pode vir com "result" ou direto
-        $result = $data['result'] ?? $data;
-        $rawJson = json_encode($data);
-
-        // Se retornou Unix timestamp > 0 = votou
-        $voteTime = 0;
-        if (is_numeric($result) && (int)$result > 0) {
-            $voteTime = (int)$result;
-        } elseif (is_array($result) && isset($result['vote_time'])) {
-            $voteTime = (int)$result['vote_time'];
+        if ($response === '-1') {
+            $this->log('L2Network retornou -1: consulta sem resultado utilizável; tentar novamente depois');
+            return TopResult::fail('L2Network: sem resultado utilizável; tente novamente');
         }
 
-        if ($voteTime > 0 && $this->isVoteValid($voteTime, self::VOTE_WINDOW)) {
-            $this->log("VOTO CONFIRMADO | login=$login ip=$ip | voteTime=$voteTime | raw: $rawJson");
+        $voteTime = filter_var($response, FILTER_VALIDATE_INT, array(
+            'options' => array('min_range' => 0),
+        ));
+        if ($voteTime === false) {
+            return TopResult::fail('L2Network: timestamp inválido');
+        }
+
+        $data = array('vote_time' => $voteTime);
+        if ($voteTime === 0) {
+            // Zero permite votar, mas não comprova um voto recente para a recompensa.
+            $this->log('L2Network retornou 0: resposta válida, sem timestamp de voto recente');
+            return TopResult::notVoted('Conclua o voto no L2Network antes de coletar', $data);
+        }
+
+        if ($voteTime > time()) {
+            return TopResult::fail('L2Network: timestamp de voto no futuro');
+        }
+
+        if ($this->isVoteValid($voteTime, self::VOTE_WINDOW)) {
+            $this->log("VOTO CONFIRMADO (POR LOGIN) | voteTime=$voteTime");
             return TopResult::ok($voteTime, $data);
         }
 
-        if ($voteTime > 0) {
-            $this->log("VOTO RECUSADO (EXPIRADO) | login=$login ip=$ip | voteTime=$voteTime passou de 12h | raw: $rawJson");
-            return TopResult::notVoted('Voto expirado (mais de 12h)');
-        }
-
-        $this->log("VOTO NÃO ENCONTRADO | login=$login ip=$ip | L2Network não confirmou o voto | raw: $rawJson");
-        return TopResult::notVoted('Não votou');
+        $this->log("VOTO RECUSADO (EXPIRADO) | voteTime=$voteTime passou de 12h");
+        return TopResult::notVoted('Voto expirado (mais de 12h)', $data);
     }
 
     public function getVoteUrl($login = '') {
+        $login = trim((string)$login);
         return self::VOTE_URL . '?a=in&u=' . urlencode($this->serverId)
              . '&id=' . urlencode($login ?: $this->serverId);
     }
@@ -734,6 +743,7 @@ class L2NetworkTop extends TopBase {
             CURLOPT_POST           => true,
             CURLOPT_POSTFIELDS     => $postData,
             CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FAILONERROR    => true,
             CURLOPT_TIMEOUT        => $this->timeout,
             CURLOPT_CONNECTTIMEOUT => $this->timeout,
             CURLOPT_SSL_VERIFYPEER => true,
