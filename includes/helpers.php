@@ -308,8 +308,8 @@ function getAvailableTops() {
         'top100arena.php' => array('name' => 'Top100Arena', 'site' => 'www.top100arena.com', 'token' => false, 'featured' => false, 'register_url' => 'https://www.top100arena.com/'),
         'hopzoneu.php' => array('name' => 'Hopzone.eu', 'site' => 'hopzone.eu', 'token' => true, 'featured' => false, 'register_url' => 'https://hopzone.eu/'),
         '4top.php'        => array('name' => '4TOP ★',      'site' => 'top.4teambr.com',   'token' => true,  'featured' => true,  'register_url' => 'https://top.4teambr.com/addserver.php'),
-        'l2jbrasil.php'   => array('name' => 'L2JBrasil ★', 'site' => 'top.l2jbrasil.com', 'token' => true,  'featured' => true,  'register_url' => 'https://top.l2jbrasil.com/index.php?a=add'),
-        'l2toporg.php'    => array('name' => 'L2Top.org ★', 'site' => 'l2top.org',         'token' => true,  'featured' => true,  'register_url' => 'https://l2top.org/add-server/'),
+        'l2jbrasil.php'   => array('name' => 'L2JBrasil', 'site' => 'top.l2jbrasil.com', 'token' => true,  'featured' => false,  'register_url' => 'https://top.l2jbrasil.com/index.php?a=add'),
+        'l2toporg.php'    => array('name' => 'L2Top.org', 'site' => 'l2top.org',         'token' => true,  'featured' => false,  'register_url' => 'https://l2top.org/add-server/'),
         'l2network.php'   => array('name' => 'L2Network',   'site' => 'l2network.eu',      'token' => true,  'featured' => false, 'register_url' => 'https://l2network.eu/add-server'),
     );
 }
@@ -327,12 +327,19 @@ function has4Top() {
 }
 
 /** Tops ativos ordenados. */
+function normalizeTopNames($tops) {
+    foreach ($tops as &$top) {
+        if ($top['top_btn'] !== '4top.php') $top['name'] = trim(str_replace('★', '', $top['name']));
+    }
+    unset($top);
+    return $tops;
+}
 function getTops() {
     $db   = getDB();
     $stmt = $db->query(
         "SELECT * FROM 4top_tops WHERE enabled = 1 ORDER BY sort_order ASC, id ASC"
     );
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return normalizeTopNames($stmt->fetchAll(PDO::FETCH_ASSOC));
 }
 
 /** Todos os tops (inclusive desativados) — usado pelo admin. */
@@ -341,7 +348,7 @@ function getAllTops() {
     $stmt = $db->query(
         "SELECT * FROM 4top_tops ORDER BY sort_order ASC, id ASC"
     );
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return normalizeTopNames($stmt->fetchAll(PDO::FETCH_ASSOC));
 }
 
 // ── Rewards — banco de dados ──────────────────────────────────────────────────
@@ -693,7 +700,7 @@ function getVoteLog($limit = 50, $offset = 0) {
             ip,
             MIN(voted_at)  AS voted_at,
             MAX(rewarded)  AS rewarded,
-            GROUP_CONCAT(t.name ORDER BY t.name SEPARATOR ', ') AS tops_voted,
+            GROUP_CONCAT(CASE WHEN t.top_btn = '4top.php' THEN t.name ELSE TRIM(REPLACE(t.name, '★', '')) END ORDER BY t.name SEPARATOR ', ') AS tops_voted,
             COUNT(*)       AS total_tops
          FROM 4top_log l
          LEFT JOIN 4top_tops t ON t.id = l.top_id

@@ -8,6 +8,7 @@ if (!file_exists(__DIR__ . '/.installed')) { header('Location: install.php'); ex
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/integration_help.php';
 
 requireAdmin();
 
@@ -350,12 +351,11 @@ renderNav();
           <input type="text" name="top_token" id="topTokenInput" class="form-control"
             data-i18n-placeholder="admin_token_ph"
             placeholder="Cole o token gerado no painel do site de votação">
-          <small id="mmTopTokenHint" style="display:none;color:var(--text-dim)">No MMTop200, copie a API Key na página Vote Checker. Exemplo fictício (não válido): <code>0123456789abcdef0123456789abcdef</code>.</small>
         </div>
 
-        <div class="alert alert-info" style="font-size:.75rem;margin-bottom:1rem" data-i18n="admin_url_auto_info">
-          ℹ As URLs de votação são geradas automaticamente. A ordem é definida automaticamente (4TOP sempre em 1º).
-        </div>
+        <p style="font-size:.75rem;color:var(--text-dim)">Preencha os dados do top. A URL de voto é gerada automaticamente.</p>
+        <button type="button" id="addIntegrationHelp" class="integration-help" disabled aria-haspopup="dialog"
+          onclick="openSelectedIntegration()"><span class="integration-help-icon" aria-hidden="true">?</span> Instrução de integração</button>
 
         <button type="submit" class="btn btn-primary btn-full" data-i18n="admin_btn_add_top">✓ Adicionar Top</button>
       </form>
@@ -375,22 +375,16 @@ renderNav();
             <div class="top-admin-identity">
               <strong><?= e($top['name']) ?></strong>
               <span><?= e($top['top_btn'] ?: 'Top externo') ?></span>
-              <?php if (postbackTopSupported($top['top_btn'])): ?>
-              <small>Para confirmar pela conta, configure o postback no painel do top com a URL HTTPS completa deste link:</small>
-              <a href="voteapi.php<?= $top['top_btn'] === 'top100arena.php' ? '?postback=' : '' ?>">URL de postback</a>
-              <?php if ($top['top_btn'] === 'gamingtop100.php'): ?>
-              <small>Na <a href="https://www.gamingtop100.net/edit" target="_blank" rel="noopener noreferrer">página de edição do GamingTop100</a>, cole no campo <strong>Postback URL</strong> o link abaixo: <code class="gaming-postback-url-text"></code>. O endereço do seu VoteSystem é detectado automaticamente. Esse postback permite confirmar o voto pela conta.</small>
-              <input type="text" class="form-control gaming-postback-url" readonly
-                aria-label="URL de postback do GamingTop100" onclick="this.select()">
-              <?php endif; ?>
-              <small><?= $top['top_btn'] === 'mmtop200.php' ? 'O campo Token recebe a API Key da página Vote Checker do MMTop200. Use o validador oficial sem senha adicional de postback.' : 'A referência numérica do jogador é gerada automaticamente.' ?></small>
-              <?php endif; ?>
+              <button type="button" class="integration-help" aria-label="Como integrar <?= e($top['name']) ?>"
+                title="Como integrar" aria-haspopup="dialog" aria-controls="integration-<?= (int)$top['id'] ?>"
+                onclick="openIntegration(<?= (int)$top['id'] ?>)"><span class="integration-help-icon" aria-hidden="true">?</span> Instrução de integração</button>
             </div>
             <span class="badge <?= $top['enabled'] ? 'badge-success' : 'badge-danger' ?>"
               data-i18n="<?= $top['enabled'] ? 'badge_active' : 'badge_inactive' ?>">
               <?= $top['enabled'] ? 'Ativo' : 'Inativo' ?>
             </span>
           </div>
+          <?php renderIntegrationHelp($top, (string)$top['id']); ?>
 
           <div class="top-admin-details">
             <div>
@@ -454,9 +448,6 @@ renderNav();
                   <label class="form-label">Token / API Key</label>
                   <input type="password" name="top_token" class="form-control"
                     placeholder="Deixe vazio para manter o atual" autocomplete="new-password">
-                  <?php if ($top['top_btn'] === 'mmtop200.php'): ?>
-                  <small style="color:var(--text-dim)">Copie a API Key na página Vote Checker do MMTop200. Exemplo fictício (não válido): <code>0123456789abcdef0123456789abcdef</code>.</small>
-                  <?php endif; ?>
                 </div>
               </div>
 
@@ -680,6 +671,9 @@ renderNav();
 
   <?php endif; ?>
 </main>
+<?php foreach ($availableTops as $button => $info):
+    renderIntegrationHelp(array('top_btn' => $button), 'add-' . pathinfo($button, PATHINFO_FILENAME));
+endforeach; ?>
 
 <?php renderFooter(); ?>
 
@@ -715,6 +709,18 @@ function removeRewardRow(btn) {
 
 var _topNames = [];
 
+function openIntegration(id) {
+    var dialog = document.getElementById('integration-' + id);
+    if (dialog && !dialog.open) {
+        dialog.showModal();
+        document.body.classList.add('integration-modal-open');
+    }
+}
+function openSelectedIntegration() {
+    var select = document.getElementById('topBtnSelect');
+    if (select && select.value) openIntegration('add-' + select.value.replace(/\.php$/, ''));
+}
+
 function toggleTopEdit(id) {
     var row = document.getElementById('edit-top-' + id);
     if (!row) return;
@@ -729,7 +735,10 @@ function onTopChange(sel) {
     var btnFile    = opt.value || '';
 
     document.getElementById('tokenGroup').style.display = needsToken ? '' : 'none';
-    document.getElementById('mmTopTokenHint').style.display = btnFile === 'mmtop200.php' ? '' : 'none';
+    var help = document.getElementById('addIntegrationHelp');
+    help.disabled = !btnFile;
+    if (btnFile) help.setAttribute('aria-controls', 'integration-add-' + btnFile.replace(/\.php$/, ''));
+    else help.removeAttribute('aria-controls');
     if (!needsToken) document.getElementById('topTokenInput').value = '';
 
     var nameInput    = document.getElementById('topNameInput');
@@ -750,19 +759,28 @@ function onTopChange(sel) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.integration-dialog').forEach(function(dialog) {
+        dialog.addEventListener('click', function(event) {
+            if (event.target !== dialog) return;
+            var rect = dialog.getBoundingClientRect();
+            if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+        });
+        dialog.addEventListener('close', function() {
+            document.body.classList.remove('integration-modal-open');
+        });
+    });
     var postbackUrl = new URL('voteapi.php', window.location.href);
     postbackUrl.protocol = 'https:';
-    document.querySelectorAll('.gaming-postback-url').forEach(function(input) {
-        input.value = postbackUrl.href;
-    });
-    document.querySelectorAll('.gaming-postback-url-text').forEach(function(label) {
-        label.textContent = postbackUrl.href;
+    document.querySelectorAll('.top-postback-url').forEach(function(input) {
+        input.value = postbackUrl.href + (input.getAttribute('data-postback-suffix') || '');
     });
     var opts = document.querySelectorAll('#topBtnSelect option[data-name]');
     for (var i = 0; i < opts.length; i++) {
         var n = opts[i].getAttribute('data-name');
         if (n) _topNames.push(n);
     }
+    var topSelect = document.getElementById('topBtnSelect');
+    if (topSelect) onTopChange(topSelect);
 });
 </script>
 </body>
