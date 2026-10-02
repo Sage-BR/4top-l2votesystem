@@ -6,13 +6,7 @@
 function getDB() {
     static $pdo = null;
     if ($pdo !== null) {
-        try {
-            $pdo->query('SELECT 1');
-            return $pdo;
-        } catch (Throwable $e) {
-            error_log('[VoteSystem] DB reconnect triggered: ' . $e->getMessage());
-            $pdo = null;
-        }
+        return $pdo;
     }
     try {
         $pdo = new PDO(

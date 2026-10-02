@@ -1,7 +1,7 @@
 <?php
 ob_start();
 // Sem rede ou banco real: testa os contratos de resposta e autenticação de callback.
-$source = file_get_contents(__DIR__ . '/../voteapi.php');
+$source = file_get_contents(__DIR__ . '/../includes/top_handlers.php');
 $start = strpos($source, 'final class TopResult');
 eval(substr($source, $start, strpos($source, 'class FourTopTop') - $start));
 eval(substr($source, strpos($source, 'abstract class IpCheckerTop')));

@@ -79,6 +79,8 @@ try {
     }
 
     $tops_status = array();
+    csrfToken();
+    session_write_close();
     foreach ($tops as $top) {
         $cooldown_left = 0;
         $can_vote      = true;

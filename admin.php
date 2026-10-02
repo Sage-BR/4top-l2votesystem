@@ -12,8 +12,9 @@ require_once __DIR__ . '/includes/bootstrap.php';
 requireAdmin();
 
 $db      = getDB();
-$success = '';
-$error   = '';
+$success = isset($_SESSION['vs_admin_success']) ? $_SESSION['vs_admin_success'] : '';
+$error   = isset($_SESSION['vs_admin_error']) ? $_SESSION['vs_admin_error'] : '';
+unset($_SESSION['vs_admin_success'], $_SESSION['vs_admin_error']);
 
 // ── Handle POST actions ──────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -203,21 +204,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Não foi possível alterar o anticheat. Verifique o banco de dados.';
         }
     }
+    $_SESSION['vs_admin_success'] = $success;
+    $_SESSION['vs_admin_error'] = $error;
+    session_write_close();
+    header('Location: admin.php', true, 303);
+    exit;
 }
 
+csrfToken();
+session_write_close();
+$showHistory = isset($_GET['history']) && $_GET['history'] === '1';
 $tops    = getAllTops();
 $rewards = getRewards();
 $has4top = has4Top();
 $anticheatEnabled = (string)getSetting('anticheat_enabled', '1') !== '0';
 
-$stmt = $db->query("SELECT COUNT(*) FROM 4top_log");
-$total_votes = (int)$stmt->fetchColumn();
+$total_votes = '—';
+$votes_today = '—';
+$recent_log = array();
+$recent_anticheat = array();
+if ($showHistory) {
+    $stmt = $db->query("SELECT COUNT(*) FROM 4top_log");
+    $total_votes = (int)$stmt->fetchColumn();
 
-$stmt = $db->query("SELECT COUNT(*) FROM 4top_log WHERE voted_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)");
-$votes_today = (int)$stmt->fetchColumn();
+    $stmt = $db->query("SELECT COUNT(*) FROM 4top_log WHERE voted_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)");
+    $votes_today = (int)$stmt->fetchColumn();
 
-$recent_log = getVoteLog(15);
-$recent_anticheat = getAnticheatLog(15);
+    $recent_log = getVoteLog(15);
+    $recent_anticheat = getAnticheatLog(15);
+}
 
 renderHead('Admin');
 renderNav();
@@ -232,6 +247,7 @@ renderNav();
     <div class="divider"><span>✦</span></div>
   </div>
 
+  <p><a class="btn btn-ghost" href="admin.php<?= $showHistory ? '' : '?history=1' ?>"><?= $showHistory ? 'Ocultar histórico e estatísticas' : 'Carregar histórico e estatísticas' ?></a></p>
   <div class="stats-row">
     <div class="stat-card">
       <div class="stat-value"><?= $total_votes ?></div>
@@ -568,6 +584,7 @@ renderNav();
   </div><!-- .admin-grid -->
 
   <!-- Vote Log -->
+  <?php if ($showHistory): ?>
   <div class="card" style="margin-top:1.5rem">
     <div class="flex-between" style="margin-bottom:1rem">
       <div class="card-title" style="margin:0" data-i18n="admin_log_title">📊 Log de Votos Recentes</div>
@@ -661,6 +678,7 @@ renderNav();
     <?php endif; ?>
   </div>
 
+  <?php endif; ?>
 </main>
 
 <?php renderFooter(); ?>

@@ -84,7 +84,9 @@ if (!function_exists('anticheatAnalyze')) {
             $reasons[] = 'proxy_header';
         }
 
+        session_write_close();
         $external = anticheatQueryIpApi($ip);
+        startSession();
         if (is_array($external)) {
             if (!empty($external['proxy'])) {
                 $risk += 70;

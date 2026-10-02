@@ -24,10 +24,10 @@ require_once __DIR__ . '/core.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/helpers.php';
 // ensureVoteSchema: roda no máximo 1x por hora por sessão
-if (empty($_SESSION['vs_schema_version']) || $_SESSION['vs_schema_version'] !== 6
+if (empty($_SESSION['vs_schema_version']) || $_SESSION['vs_schema_version'] !== 7
     || empty($_SESSION['vs_schema_checked']) || $_SESSION['vs_schema_checked'] < time() - 3600) {
     if (ensureVoteSchema()) {
-        $_SESSION['vs_schema_version'] = 6;
+        $_SESSION['vs_schema_version'] = 7;
         $_SESSION['vs_schema_checked'] = time();
     } else {
         unset($_SESSION['vs_schema_version'], $_SESSION['vs_schema_checked']);

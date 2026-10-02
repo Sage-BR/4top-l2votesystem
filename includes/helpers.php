@@ -3,7 +3,7 @@
  * VoteSystem — Helpers (lógica do sistema de votação)
  *
  * Responsabilidades:
- *   - Loader de API de top (CDN 4teambr)
+ *   - Loader local de APIs de tops
  *   - CRUD de tops e rewards no banco
  *   - Cooldown, log e registro de votos
  *   - Entrega de recompensa (delega para core.php)
@@ -16,10 +16,9 @@
 
 // ── CDN 4teambr ───────────────────────────────────────────────────────────────
 
-// API local - voteapi.php no mesmo servidor
-define('VOTEAPI_LOCAL', 'voteapi.php');
 require_once __DIR__ . '/hopzoneeu.php';
 require_once __DIR__ . '/postbacktops.php';
+require_once __DIR__ . '/top_handlers.php';
 
 // Mapa arquivo → identificador aceito pelo CDN
 function getTopKey($btn) {
@@ -36,7 +35,7 @@ function getTopKey($btn) {
 }
 
 /**
- * Retorna um RemoteTopApi que delega checkVote/getVoteUrl ao CDN 4teambr.
+ * Retorna um adaptador que chama as classes de API diretamente no mesmo processo.
  * Retorna null se o top_btn não for reconhecido.
  */
 function loadTopApi($top) {
@@ -53,123 +52,19 @@ function loadTopApi($top) {
 }
 
 /**
- * Proxy HTTP para o voteapi.php do CDN.
+ * Adaptador local: mantém a interface antiga sem requisições HTTP ao próprio painel.
  * Interface pública: checkVote($ip, $login) e getVoteUrl($login).
  */
 class RemoteTopApi {
-
-    private $topKey;
-    private $token;
-    private $serverId;
-    private $timeout = 15;
-
+    private $handler;
     public function __construct($topKey, $token, $serverId) {
-        $this->topKey   = $topKey;
-        $this->token    = $token;
-        $this->serverId = $serverId;
+        $this->handler = buildHandler($topKey, $token, $serverId);
     }
-
-    private static $noCheckApi = array();
-
     public function checkVote($ip, $login = '') {
-        // Tops sem API de check: aceita direto sem chamar o CDN
-        if (in_array($this->topKey, self::$noCheckApi, true)) {
-            return $this->ok(0);
-        }
-
-        $data = $this->call(array(
-            'top'       => $this->topKey,
-            'server_id' => $this->serverId,
-            'token'     => $this->token,
-            'ip'        => $ip,
-            'login'     => $login,
-            'action'    => 'check',
-        ));
-
-        if ($data === null) return $this->fail('CDN inacessível');
-
-        // CDN retorna error como booleano true/false
-        if (isset($data['error']) && $data['error'] === true) {
-            return $this->fail(isset($data['message']) ? $data['message'] : 'Erro no CDN');
-        }
-
-        // voted é booleano true/false
-        if (isset($data['voted']) && $data['voted'] === true) {
-            $vt = isset($data['voteTime']) ? (int)$data['voteTime'] : 0;
-            // Se voteTime parece um IP (muito maior que timestamp UNIX), usa time()
-            if ($vt > 5000000000) { $vt = 0; }
-            return $this->ok($vt);
-        }
-
-        return $this->notVoted(isset($data['message']) ? $data['message'] : 'Não votou');
+        return $this->handler ? $this->handler->checkVote($ip, $login) : TopResult::fail('Top não suportado');
     }
-
     public function getVoteUrl($login = '') {
-        $data = $this->call(array(
-            'top'       => $this->topKey,
-            'server_id' => $this->serverId,
-            'token'     => $this->token,
-            'login'     => $login,
-            'action'    => 'vote_url',
-        ));
-        return ($data && isset($data['voteUrl'])) ? $data['voteUrl'] : '#';
-    }
-
-    private function call($params) {
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host   = $_SERVER['HTTP_HOST'] ?? '127.0.0.1';
-
-        // Remove porta, extrai apenas o hostname
-        $hostname = strtolower(parse_url('http://' . $host, PHP_URL_HOST) ?: '');
-        // Rejeita caracteres perigosos (SSRF básico) mas permite hostname normal
-        if ($hostname === '' || preg_match('/[<>"\'\\s]/', $hostname)) {
-            $hostname = '127.0.0.1';
-        }
-
-        $port     = (int)($_SERVER['SERVER_PORT'] ?? 80);
-        $portSuffix = ($port === 80 || $port === 443) ? '' : ':' . $port;
-
-        $scriptName = $_SERVER['SCRIPT_NAME'] ?? '/vote.php';
-        $baseDir    = rtrim(dirname($scriptName), '/\\');
-        if ($baseDir === '.' || $baseDir === '\\') $baseDir = '';
-
-        $query  = http_build_query($params);
-
-        // Tenta com HTTP_HOST original (funciona na maioria dos servidores)
-        // verifyHost=true: certificado TLS precisa bater com o hostname
-        $url  = $scheme . '://' . $hostname . $baseDir . '/voteapi.php?' . $query;
-        $body = $this->httpGet($url, $hostname !== '127.0.0.1');
-
-        // Fallback: 127.0.0.1 (virtual hosts que rejeitam hostname externo)
-        if ($body === null) {
-            $url  = $scheme . '://127.0.0.1' . $portSuffix . $baseDir . '/voteapi.php?' . $query;
-            $body = $this->httpGet($url, false);
-        }
-
-        if ($body === null || trim($body) === '') return null;
-        $data = @json_decode($body, true);
-        return (json_last_error() === JSON_ERROR_NONE) ? $data : null;
-    }
-
-    private function httpGet($url, $verifyHost = true) {
-        $ctx = stream_context_create(array(
-            'http' => array('timeout' => $this->timeout, 'ignore_errors' => true),
-            'ssl'  => array('verify_peer' => true, 'verify_peer_name' => $verifyHost),
-        ));
-        return @file_get_contents($url, false, $ctx) ?: null;
-    }
-
-    private function ok($voteTime = 0) {
-        $r = new stdClass(); $r->voted = true;  $r->error = false;
-        $r->message = 'Votou';      $r->voteTime = $voteTime; return $r;
-    }
-    private function notVoted($msg = 'Não votou') {
-        $r = new stdClass(); $r->voted = false; $r->error = false;
-        $r->message = $msg;         $r->voteTime = 0; return $r;
-    }
-    private function fail($msg = 'Erro') {
-        $r = new stdClass(); $r->voted = false; $r->error = true;
-        $r->message = $msg;         $r->voteTime = 0; return $r;
+        return $this->handler ? $this->handler->getVoteUrl($login) : '#';
     }
 }
 
@@ -219,8 +114,14 @@ function getTopVoteUrl($top, $login = '') {
  * Lista tops disponíveis buscando do CDN; fallback estático se CDN falhar.
  */
 function ensureVoteSchema() {
+    $schemaLocked = false;
     try {
         $db = getDB();
+        if ((string)getSetting('schema_version', '0') === '7') return true;
+        $schemaLock = $db->query("SELECT GET_LOCK('vs_schema_migration', 5)");
+        $schemaLocked = (int)$schemaLock->fetchColumn() === 1;
+        if (!$schemaLocked) return false;
+        if ((string)getSetting('schema_version', '0') === '7') return true;
         $tables = array(
             '4top_postback_refs' => "CREATE TABLE IF NOT EXISTS `4top_postback_refs` (
                 `id` INT NOT NULL AUTO_INCREMENT, `top_id` INT NOT NULL,
@@ -317,10 +218,28 @@ function ensureVoteSchema() {
         if ($stmt->fetchColumn() === false) {
             setSetting('anticheat_enabled', '1');
         }
+        $indexes = array(
+            '4top_log' => array('idx_login_top_date' => 'login, top_id, voted_at', 'idx_ip_top_date' => 'ip, top_id, voted_at', 'idx_vote_date' => 'voted_at'),
+            '4top_reward_claims' => array('idx_login_claim_date' => 'login, claimed_at', 'idx_hwid_claim_date' => 'hwid, claimed_at'),
+            '4top_anticheat_log' => array('idx_created_id' => 'created_at, id'),
+        );
+        foreach ($indexes as $table => $definitions) {
+            $existing = $db->prepare('SELECT DISTINCT INDEX_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?');
+            $existing->execute(array($table));
+            $names = $existing->fetchAll(PDO::FETCH_COLUMN);
+            $additions = array();
+            foreach ($definitions as $name => $columns) {
+                if (!in_array($name, $names, true)) $additions[] = "ADD INDEX `$name` ($columns)";
+            }
+            if ($additions) $db->exec("ALTER TABLE `$table` " . implode(', ', $additions));
+        }
+        if (!setSetting('schema_version', '7')) return false;
         return true;
     } catch (Throwable $e) {
         error_log('[VoteSystem] ensureVoteSchema error: ' . $e->getMessage());
         return false;
+    } finally {
+        if ($schemaLocked) $db->query("SELECT RELEASE_LOCK('vs_schema_migration')");
     }
 }
 
@@ -546,7 +465,7 @@ function registerVote($login, $top_id, $ip) {
 // ── Verificação de votos (etapa 1) ───────────────────────────────────────────
 
 /**
- * Consulta o CDN e verifica se o jogador votou em todos os tops.
+ * Consulta registros locais e APIs dos tops, sem HTTP para o próprio painel.
  * Não entrega reward — só checa e armazena os confirmados na sessão.
  *
  * Retorna array(
@@ -557,6 +476,7 @@ function registerVote($login, $top_id, $ip) {
  * )
  */
 function checkVotes($login, $ip, $hwid = '') {
+    if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
     $db = getDB();
     $login = trim((string)$login);
     $hwid = trim((string)$hwid);
@@ -573,7 +493,7 @@ function checkVotes($login, $ip, $hwid = '') {
         return array('status' => 'cooldown', 'msg' => '⏳ Você já coletou sua recompensa nas últimas 12 horas.');
     }
 
-    // Checa cada top via CDN
+    // Checa cada top por seu adaptador local.
     $tops      = getTops();
     $missing   = array();
     $confirmed = array();
@@ -583,7 +503,7 @@ function checkVotes($login, $ip, $hwid = '') {
         $voteTime = 0;
 
         // 1. Tenta o Check Local por login — evita depender de IP para confirmar voto
-        $localVote = getLastVote($login, $t['id']);
+        $localVote = postbackTopSupported($t['top_btn']) ? false : getLastVote($login, $t['id']);
         if (!postbackTopSupported($t['top_btn']) && $localVote && $localVote['seconds_ago'] < 43200) {
             $voted = true;
             $voteTime = (new DateTime($localVote['voted_at'], new DateTimeZone('UTC')))->getTimestamp();
@@ -623,10 +543,15 @@ function checkVotes($login, $ip, $hwid = '') {
 
     // Armazena os confirmados e hwid na sessão para o claim usar
     startSession();
+    if (!isset($_SESSION['vs_login']) || $_SESSION['vs_login'] !== $login) {
+        session_write_close();
+        return array('status' => 'error', 'msg' => 'Sessão alterada. Faça login novamente.');
+    }
     $_SESSION['vs_confirmed_votes'] = $confirmed;
     if ($hwid) {
         $_SESSION['vs_confirmed_hwid'] = $hwid;
     }
+    session_write_close();
 
     return array(
         'status'    => 'ok',
@@ -665,6 +590,12 @@ function claimReward($login, $objId, $hwid = null) {
     }
 
     $confirmed = $_SESSION['vs_confirmed_votes'];
+    if (!isset($_SESSION['vs_login']) || $_SESSION['vs_login'] !== $login) {
+        return array('status' => 'error', 'msg' => 'Sessão inválida. Faça login novamente.');
+    }
+    // Consome a autorização antes de liberar a sessão: outro pedido precisa verificar de novo.
+    unset($_SESSION['vs_confirmed_votes'], $_SESSION['vs_confirmed_hwid']);
+    session_write_close();
 
     // Valida que o personagem pertence à conta
     if (!gameCharBelongsTo($login, $objId)) {
@@ -673,7 +604,17 @@ function claimReward($login, $objId, $hwid = null) {
 
     $db = getDB();
 
+    $claimLocks = array(substr('vs_claim_' . hash('sha256', $login), 0, 64));
+    if ($hwid !== '') $claimLocks[] = substr('vs_hwid_' . hash('sha256', $hwid), 0, 64);
+    sort($claimLocks, SORT_STRING);
+    $heldLocks = array();
     try {
+        foreach ($claimLocks as $claimLock) {
+            $lockStmt = $db->prepare('SELECT GET_LOCK(?, 5)');
+            $lockStmt->execute(array($claimLock));
+            if ((int)$lockStmt->fetchColumn() !== 1) return array('status' => 'error', 'msg' => 'Entrega em andamento. Tente novamente.');
+            $heldLocks[] = $claimLock;
+        }
         $db->beginTransaction();
 
         // Cooldown check dentro da transação com FOR UPDATE
@@ -726,16 +667,17 @@ function claimReward($login, $objId, $hwid = null) {
 
         $db->commit();
 
-        // Limpa sessão
-        unset($_SESSION['vs_confirmed_votes']);
-        unset($_SESSION['vs_confirmed_hwid']);
-
         return array('status' => 'ok', 'msg' => '🎁 Recompensa entregue com sucesso!');
 
     } catch (Throwable $e) {
-        $db->rollBack();
+        if ($db->inTransaction()) $db->rollBack();
         error_log('[VoteSystem] claimReward error: ' . $e->getMessage());
         return array('status' => 'error', 'msg' => '❌ Erro ao entregar recompensa. Tente novamente.');
+    } finally {
+        foreach (array_reverse($heldLocks) as $claimLock) {
+            $lockStmt = $db->prepare('SELECT RELEASE_LOCK(?)');
+            $lockStmt->execute(array($claimLock));
+        }
     }
 }
 

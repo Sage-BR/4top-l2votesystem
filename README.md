@@ -149,6 +149,11 @@ GamingTop100: https://www.gamingtop100.net/vote-check
 
 ## 📋 Notas
 
+- Os adaptadores chamam as APIs diretamente; `voteapi.php` continua disponível como endpoint e callback, mas o painel não faz HTTP para si mesmo. Publique também `includes/top_handlers.php`.
+- Gravações do admin usam redirecionamento após POST. Histórico e estatísticas são carregados pelo botão “Carregar histórico e estatísticas”, sem atrasar cada gravação.
+- A versão 7 do schema cria índices de cooldown/data uma vez por banco. A primeira atualização pode demorar em históricos grandes e exige permissão `ALTER`.
+- A sessão é liberada durante as consultas externas. A autorização de coleta é consumida antes da entrega, que mantém transação e bloqueios por conta/HWID. Em caso de falha, verifique os votos novamente.
+
 - O cooldown de **12 horas** é baseado no horário real do voto registrado pela API de cada top, não no horário de entrega da recompensa
 - Se um jogador votar de um IP diferente, o sistema verifica o banco de dados local para garantir que o cooldown seja respeitado
 
