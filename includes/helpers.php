@@ -497,7 +497,7 @@ function checkVotes($login, $ip, $hwid = '') {
     );
     $chk->execute(array($login, $hwid ?: null));
     if ($chk->fetch()) {
-        return array('status' => 'cooldown', 'msg' => '⏳ Você já coletou sua recompensa nas últimas 12 horas.');
+        return array('status' => 'cooldown', 'msg_key' => 'msg_cooldown', 'msg' => '⏳ Você já coletou sua recompensa nas últimas 12 horas.');
     }
 
     // Checa cada top por seu adaptador local.
@@ -531,13 +531,15 @@ function checkVotes($login, $ip, $hwid = '') {
         if ($voted) {
             $confirmed[$t['id']] = $voteTime > 0 ? $voteTime : time();
         } else {
-            $missing[] = htmlspecialchars($t['name'], ENT_QUOTES, 'UTF-8');
+            $missing[] = $t['name'];
         }
     }
 
     if (!empty($missing)) {
         return array(
             'status' => 'not_voted',
+            'msg_key' => 'msg_not_voted',
+            'missing' => $missing,
             'msg'    => '⚠ Vote em todos os tops antes de coletar. Faltam: ' . implode(', ', $missing),
         );
     }
@@ -545,14 +547,14 @@ function checkVotes($login, $ip, $hwid = '') {
     // Busca personagens da conta para o jogador escolher
     $chars = gameGetChars($login);
     if (empty($chars)) {
-        return array('status' => 'no_chars', 'msg' => '⚠ Nenhum personagem encontrado. Crie um personagem no jogo primeiro.');
+        return array('status' => 'no_chars', 'msg_key' => 'msg_no_chars', 'msg' => '⚠ Nenhum personagem encontrado. Crie um personagem no jogo primeiro.');
     }
 
     // Armazena os confirmados e hwid na sessão para o claim usar
     startSession();
     if (!isset($_SESSION['vs_login']) || $_SESSION['vs_login'] !== $login) {
         session_write_close();
-        return array('status' => 'error', 'msg' => 'Sessão alterada. Faça login novamente.');
+        return array('status' => 'error', 'msg_key' => 'msg_session_invalid', 'msg' => 'Sessão alterada. Faça login novamente.');
     }
     $_SESSION['vs_confirmed_votes'] = $confirmed;
     if ($hwid) {
@@ -562,6 +564,7 @@ function checkVotes($login, $ip, $hwid = '') {
 
     return array(
         'status'    => 'ok',
+        'msg_key'   => 'msg_all_confirmed',
         'msg'       => '✅ Todos os votos confirmados! Escolha o personagem para receber a recompensa.',
         'chars'     => $chars,
         'confirmed' => $confirmed,
@@ -595,12 +598,12 @@ function claimReward($login, $objId, $hwid = null) {
 
     // Valida que checkVotes() foi chamado antes
     if (empty($_SESSION['vs_confirmed_votes'])) {
-        return array('status' => 'error', 'code' => 'verification_required', 'msg' => '❌ Verificação de votos expirada. Clique em Verificar Votos novamente.');
+        return array('status' => 'error', 'msg_key' => 'msg_expired', 'code' => 'verification_required', 'msg' => '❌ Verificação de votos expirada. Clique em Verificar Votos novamente.');
     }
 
     $confirmed = $_SESSION['vs_confirmed_votes'];
     if (!isset($_SESSION['vs_login']) || $_SESSION['vs_login'] !== $login) {
-        return array('status' => 'error', 'msg' => 'Sessão inválida. Faça login novamente.');
+        return array('status' => 'error', 'msg_key' => 'msg_session_invalid', 'msg' => 'Sessão inválida. Faça login novamente.');
     }
     // Preserva a autorização em caso de falha; as travas e o cooldown impedem entrega duplicada.
     session_write_close();
@@ -608,7 +611,7 @@ function claimReward($login, $objId, $hwid = null) {
     // Valida que o personagem pertence à conta
     rewardDebug('character_validation');
     if (!gameCharBelongsTo($login, $objId)) {
-        return array('status' => 'error', 'msg' => '❌ Personagem inválido.');
+        return array('status' => 'error', 'msg_key' => 'msg_invalid_char', 'msg' => '❌ Personagem inválido.');
     }
 
     $db = getDB();
@@ -624,7 +627,7 @@ function claimReward($login, $objId, $hwid = null) {
             $lockStmt->execute(array($claimLock));
             $acquired = (int)$lockStmt->fetchColumn() === 1;
             $lockStmt->closeCursor();
-            if (!$acquired) return array('status' => 'error', 'msg' => 'Entrega em andamento. Tente novamente.');
+            if (!$acquired) return array('status' => 'error', 'msg_key' => 'msg_delivery_busy', 'msg' => 'Entrega em andamento. Tente novamente.');
             $heldLocks[] = $claimLock;
         }
         $db->beginTransaction();
@@ -640,7 +643,7 @@ function claimReward($login, $objId, $hwid = null) {
         $chk->execute(array($login, $hwid ?: null));
         if ($chk->fetch()) {
             $db->rollBack();
-            return array('status' => 'cooldown', 'msg' => '⏳ Você já coletou sua recompensa nas últimas 12 horas.');
+            return array('status' => 'cooldown', 'msg_key' => 'msg_cooldown', 'msg' => '⏳ Você já coletou sua recompensa nas últimas 12 horas.');
         }
 
         // Registra votos confirmados com o timestamp real do voto
@@ -700,13 +703,13 @@ function claimReward($login, $objId, $hwid = null) {
         }
         session_write_close();
 
-        return array('status' => 'ok', 'msg' => '🎁 Recompensa entregue com sucesso!');
+        return array('status' => 'ok', 'msg_key' => 'msg_reward_ok', 'msg' => '🎁 Recompensa entregue com sucesso!');
 
     } catch (Throwable $e) {
         rewardDebug('delivery_exception', $e);
         if ($db->inTransaction()) $db->rollBack();
         error_log('[VoteSystem] claimReward error: ' . $e->getMessage());
-        return array('status' => 'error', 'msg' => '❌ Erro ao entregar recompensa. Tente novamente.');
+        return array('status' => 'error', 'msg_key' => 'msg_reward_error', 'msg' => '❌ Erro ao entregar recompensa. Tente novamente.');
     } finally {
         foreach (array_reverse($heldLocks) as $claimLock) {
             rewardDebug('release_claim_lock');

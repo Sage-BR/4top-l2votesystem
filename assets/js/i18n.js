@@ -18,6 +18,7 @@
   var STORAGE_KEY  = 'vs_lang';
   var DEFAULT_LANG = 'pt';
   var SUPPORTED    = ['pt', 'es', 'en', 'ru'];
+  var selectedLang = null;
 
   /* ══════════════════════════════════════════════════════════════════════════
      DICIONÁRIO DE TRADUÇÕES
@@ -758,13 +759,105 @@
     },
   };
 
+  // Mensagens e instruções adicionadas ao fluxo de coleta e integração.
+  var extra = {
+    admin_top_hint: ['Preencha os dados do top. A URL de voto é gerada automaticamente.', 'Completa los datos del top. La URL de voto se genera automáticamente.', 'Enter the ranking site details. The vote URL is generated automatically.', 'Заполните данные сайта. URL голосования создаётся автоматически.'],
+    admin_edit: ['✎ Editar', '✎ Editar', '✎ Edit', '✎ Изменить'],
+    admin_cancel: ['Cancelar', 'Cancelar', 'Cancel', 'Отмена'],
+    admin_save_changes: ['✓ Salvar alterações', '✓ Guardar cambios', '✓ Save changes', '✓ Сохранить изменения'],
+    admin_keep_token: ['Deixe vazio para manter o atual', 'Deja vacío para conservar el actual', 'Leave empty to keep the current token', 'Оставьте пустым, чтобы сохранить текущий токен'],
+    admin_remove: ['Remover', 'Eliminar', 'Remove', 'Удалить'],
+    anticheat_desc: ['Bloqueia a tela de voto quando a conexão parecer VPN, proxy ou rede suspeita.', 'Bloquea la página de voto cuando la conexión parece una VPN, proxy o red sospechosa.', 'Blocks the voting page when the connection appears to use a VPN, proxy or suspicious network.', 'Блокирует страницу голосования при обнаружении VPN, прокси или подозрительной сети.'],
+    anticheat_enable: ['Ativar anticheat', 'Activar anticheat', 'Enable anticheat', 'Включить античит'],
+    anticheat_disable: ['Desativar anticheat', 'Desactivar anticheat', 'Disable anticheat', 'Отключить античит'],
+    anticheat_status: ['Status atual:', 'Estado actual:', 'Current status:', 'Текущий статус:'],
+    anticheat_active: ['Ativo', 'Activo', 'Enabled', 'Включён'],
+    anticheat_inactive: ['Desativado', 'Desactivado', 'Disabled', 'Отключён'],
+    anticheat_log_title: ['🛡 Detecções do Anticheat', '🛡 Detecciones del Anticheat', '🛡 Anticheat Detections', '🛡 Обнаружения античита'],
+    anticheat_log_subtitle: ['Últimos 15 bloqueios', 'Últimos 15 bloqueos', 'Last 15 blocks', 'Последние 15 блокировок'],
+    anticheat_no_log: ['Nenhuma detecção registrada ainda.', 'Aún no hay detecciones registradas.', 'No detections recorded yet.', 'Обнаружения ещё не зарегистрированы.'],
+    col_risk: ['Risco', 'Riesgo', 'Risk', 'Риск'],
+    col_reason: ['Motivo', 'Motivo', 'Reason', 'Причина'],
+    col_source: ['Fonte', 'Origen', 'Source', 'Источник'],
+    col_status: ['Status', 'Estado', 'Status', 'Статус'],
+    anticheat_blocked: ['Bloqueado', 'Bloqueado', 'Blocked', 'Заблокирован'],
+    anticheat_alert: ['Apenas alerta', 'Solo alerta', 'Warning only', 'Только предупреждение'],
+    removed_top: ['Top removido', 'Top eliminado', 'Removed top', 'Удалённый сайт'],
+    admin_security_error: ['Token de segurança inválido. Recarregue a página e tente novamente.', 'Token de seguridad inválido. Recarga la página e inténtalo de nuevo.', 'Invalid security token. Reload the page and try again.', 'Недействительный токен безопасности. Обновите страницу и повторите попытку.'],
+    admin_required_error: ['Nome, ID do Servidor e Top são obrigatórios.', 'El nombre, el ID del servidor y el top son obligatorios.', 'Name, Server ID and Top are required.', 'Название, ID сервера и сайт обязательны.'],
+    admin_invalid_top: ['Top selecionado inválido.', 'Top seleccionado inválido.', 'Invalid ranking site selected.', 'Выбран недействительный сайт.'],
+    admin_numeric_id: ['Este top exige o ID numérico do servidor.', 'Este top requiere el ID numérico del servidor.', 'This ranking site requires a numeric server ID.', 'Этот сайт требует числовой ID сервера.'],
+    admin_hop_error: ['Hopzone.eu: informe o ID numérico do servidor e sua API Key.', 'Hopzone.eu: introduce el ID numérico del servidor y tu API Key.', 'Hopzone.eu: enter the numeric server ID and your API Key.', 'Hopzone.eu: укажите числовой ID сервера и API Key.'],
+    admin_invalid_id: ['ID do Servidor contém caracteres inválidos.', 'El ID del servidor contiene caracteres inválidos.', 'Server ID contains invalid characters.', 'ID сервера содержит недопустимые символы.'],
+    admin_4top_first: ['⚠ O 4TOP precisa ser adicionado primeiro antes de qualquer outro top.', '⚠ Añade 4TOP antes de cualquier otro top.', '⚠ Add 4TOP before any other ranking site.', '⚠ Добавьте 4TOP перед остальными сайтами.'],
+    admin_duplicate_top: ['Este top já foi adicionado.', 'Este top ya fue añadido.', 'This ranking site has already been added.', 'Этот сайт уже добавлен.'],
+    admin_missing_top: ['Top não encontrado ou inválido.', 'Top no encontrado o inválido.', 'Ranking site not found or invalid.', 'Сайт не найден или недействителен.'],
+    admin_top_updated: ['Top atualizado com sucesso!', '¡Top actualizado correctamente!', 'Ranking site updated successfully!', 'Сайт успешно обновлён!'],
+    admin_4top_remove: ['O 4TOP não pode ser removido.', '4TOP no se puede eliminar.', '4TOP cannot be removed.', '4TOP нельзя удалить.'],
+    admin_top_removed: ['Top removido.', 'Top eliminado.', 'Ranking site removed.', 'Сайт удалён.'],
+    admin_4top_disable: ['O 4TOP não pode ser desativado.', '4TOP no se puede desactivar.', '4TOP cannot be disabled.', '4TOP нельзя отключить.'],
+    admin_status_updated: ['Status do top atualizado.', 'Estado del top actualizado.', 'Ranking site status updated.', 'Статус сайта обновлён.'],
+    admin_item_invalid: ['Preencha pelo menos um Item ID válido.', 'Introduce al menos un Item ID válido.', 'Enter at least one valid Item ID.', 'Укажите хотя бы один корректный Item ID.'],
+    admin_reward_removed: ['Reward removido.', 'Recompensa eliminada.', 'Reward removed.', 'Награда удалена.'],
+    admin_rewards_cleared: ['Todos os rewards foram removidos.', 'Todas las recompensas fueron eliminadas.', 'All rewards were removed.', 'Все награды удалены.'],
+    admin_anticheat_on: ['Anticheat ativado.', 'Anticheat activado.', 'Anticheat enabled.', 'Античит включён.'],
+    admin_anticheat_off: ['Anticheat desativado.', 'Anticheat desactivado.', 'Anticheat disabled.', 'Античит отключён.'],
+    admin_anticheat_error: ['Não foi possível alterar o anticheat. Verifique o banco de dados.', 'No se pudo cambiar el anticheat. Revisa la base de datos.', 'Could not change anticheat. Check the database.', 'Не удалось изменить античит. Проверьте базу данных.'],
+    admin_top_added: ['Top "{name}" adicionado com sucesso!', '¡Top "{name}" añadido correctamente!', 'Ranking site "{name}" added successfully!', 'Сайт "{name}" успешно добавлен!'],
+    admin_rewards_added: ['{count} item(s) de reward adicionado(s)!', '¡{count} objeto(s) de recompensa añadido(s)!', '{count} reward item(s) added!', 'Добавлено предметов награды: {count}!'],
+    admin_integration_help: ['Instrução de integração', 'Instrucciones de integración', 'Integration instructions', 'Инструкции по интеграции'],
+    msg_session_invalid: ['Sessão inválida. Faça login novamente.', 'Sesión inválida. Inicia sesión de nuevo.', 'Invalid session. Please sign in again.', 'Недействительная сессия. Войдите снова.'],
+    msg_delivery_busy: ['Entrega em andamento. Tente novamente.', 'Entrega en curso. Inténtalo de nuevo.', 'Delivery in progress. Please try again.', 'Выдача выполняется. Попробуйте снова.'],
+    msg_invalid_request: ['Requisição inválida. Recarregue a página.', 'Solicitud inválida. Recarga la página.', 'Invalid request. Reload the page.', 'Недействительный запрос. Обновите страницу.'],
+    msg_internal_error: ['Erro interno ao processar a recompensa. Consulte o log do servidor.', 'Error interno al procesar la recompensa. Consulta el registro del servidor.', 'Internal error processing the reward. Check the server log.', 'Внутренняя ошибка выдачи награды. Проверьте журнал сервера.'],
+    msg_service_unavailable: ['Serviço temporariamente indisponível. Tente novamente.', 'Servicio temporalmente no disponible. Inténtalo de nuevo.', 'Service temporarily unavailable. Please try again.', 'Сервис временно недоступен. Попробуйте снова.'],
+    msg_access_blocked: ['Acesso bloqueado: desative a VPN/proxy e tente novamente.', 'Acceso bloqueado: desactiva la VPN/proxy e inténtalo de nuevo.', 'Access blocked: disable your VPN/proxy and try again.', 'Доступ заблокирован: отключите VPN/прокси и повторите попытку.'],
+    access_blocked_title: ['Acesso temporariamente bloqueado', 'Acceso temporalmente bloqueado', 'Access temporarily blocked', 'Доступ временно заблокирован'],
+    access_blocked_desc: ['Detectamos sinais de VPN/proxy ou conexão suspeita. Desative a VPN/proxy e recarregue a página para votar e receber recompensa.', 'Detectamos una VPN/proxy o una conexión sospechosa. Desactívala y recarga la página para votar y recibir la recompensa.', 'We detected a VPN/proxy or a suspicious connection. Disable it and reload the page to vote and claim your reward.', 'Обнаружены VPN/прокси или подозрительное соединение. Отключите VPN/прокси и обновите страницу для голосования и получения награды.'],
+    top_ip_cooldown: ['⏳ IP em cooldown', '⏳ IP en espera', '⏳ IP on cooldown', '⏳ Для IP действует период ожидания'],
+    top_vote_title: ['Votar neste top', 'Votar en este top', 'Vote on this top', 'Голосовать на этом сайте'],
+    top_vote: ['⚔ Votar', '⚔ Votar', '⚔ Vote', '⚔ Голосовать'],
+    top_voted: ['✓ Votado', '✓ Votado', '✓ Voted', '✓ Голос учтён'],
+    integration_title: ['Como integrar', 'Cómo integrar', 'How to integrate', 'Как настроить интеграцию'],
+    integration_close: ['Fechar instruções', 'Cerrar instrucciones', 'Close instructions', 'Закрыть инструкции'],
+    integration_register: ['Cadastre seu servidor no', 'Registra tu servidor en', 'Register your server at', 'Зарегистрируйте сервер на'],
+    integration_intro: ['No VoteSystem, informe o nome e o identificador do servidor no top.', 'En VoteSystem, introduce el nombre y el identificador del servidor en el top.', 'In VoteSystem, enter the server name and its identifier on the ranking site.', 'В VoteSystem укажите название сервера и его идентификатор на сайте рейтинга.'],
+    integration_4top_config: ['O 4TOP é obrigatório e aparece primeiro. Informe o identificador do servidor no ranking e a API Key do painel do 4TOP no campo Token / API Key.', '4TOP es obligatorio y aparece primero. Introduce el identificador del servidor en el ranking y la API Key de su panel en Token / API Key.', '4TOP is required and appears first. Enter your server identifier from the ranking and the API Key from the 4TOP panel in Token / API Key.', '4TOP обязателен и отображается первым. Укажите идентификатор сервера в рейтинге и API Key из панели 4TOP в поле Token / API Key.'],
+    integration_4top_check: ['O link e a consulta enviam a identificação da conta. A API deve confirmar um voto recente; abrir o link não comprova o voto. Não precisa configurar postback.', 'El enlace y la consulta envían el identificador de la cuenta. La API debe confirmar un voto reciente; abrir el enlace no lo confirma. No requiere postback.', 'The vote link and lookup send the account identifier. The API must confirm a recent vote; opening the link does not prove a vote. No postback setup is required.', 'Ссылка и запрос передают идентификатор аккаунта. API должен подтвердить недавний голос; открытие ссылки не подтверждает голосование. Настройка postback не требуется.'],
+    integration_brasil_config: ['Informe o username do servidor no ranking (parâmetro <code>u</code>), não o login do jogador. O link envia <code>player_id</code> gerado pelo MD5 do login; a checagem usa o mesmo identificador.', 'Introduce el username del servidor en el ranking (parámetro <code>u</code>), no el login del jugador. El enlace envía <code>player_id</code> generado con MD5 del login; la consulta usa el mismo identificador.', 'Enter the server username on the ranking (parameter <code>u</code>), not the player login. The link sends <code>player_id</code> generated from the MD5 of the login; verification uses the same identifier.', 'Укажите username сервера в рейтинге (параметр <code>u</code>), а не логин игрока. Ссылка передаёт <code>player_id</code>, полученный через MD5 логина; проверка использует тот же идентификатор.'],
+    integration_brasil_check: ['Conclua o voto e o captcha no top. A confirmação exige status válido e voto nas últimas 12 horas. Há consulta secundária por IP quando player_id não confirma.', 'Completa el voto y el captcha. La confirmación requiere un estado válido y un voto en las últimas 12 horas. Se consulta el IP si player_id no confirma.', 'Complete the vote and captcha. Confirmation requires a valid status and a vote within the last 12 hours. A secondary IP lookup is used when player_id does not confirm the vote.', 'Завершите голосование и капчу. Нужны корректный статус и голос за последние 12 часов. Если player_id не подтверждает голос, выполняется дополнительная проверка IP.'],
+    integration_brasil_token: ['O campo Token não participa da consulta atual do L2JBrasil. Não precisa configurar postback.', 'El campo Token no se utiliza en la consulta actual de L2JBrasil. No requiere postback.', 'The Token field is not used by the current L2JBrasil lookup. No postback setup is required.', 'Поле Token не используется в текущем запросе L2JBrasil. Настройка postback не требуется.'],
+    integration_l2top_config: ['Informe o ID do servidor e o token da API do painel do L2Top.org. O link inclui o login; a API consulta o mesmo login usando o token.', 'Introduce el ID del servidor y el token de la API de L2Top.org. El enlace incluye el login; la API consulta el mismo login con el token.', 'Enter the server ID and API token from the L2Top.org panel. The link includes the login; the API checks the same login using the token.', 'Укажите ID сервера и токен API из панели L2Top.org. Ссылка содержит логин; API проверяет тот же логин с помощью токена.'],
+    integration_l2top_check: ['É necessário um voto confirmado dentro das últimas 12 horas. Não precisa configurar postback.', 'Se requiere un voto confirmado en las últimas 12 horas. No requiere postback.', 'A confirmed vote within the last 12 hours is required. No postback setup is needed.', 'Требуется подтверждённый голос за последние 12 часов. Настройка postback не нужна.'],
+    integration_network_config: ['No campo ID do Servidor no Top, informe exatamente o valor de <code>u</code> do link oficial do L2Network. É o username do proprietário do cadastro e pode diferir do nome do servidor e do ID numérico da página de detalhes.', 'En ID del Servidor en el Top, introduce exactamente el valor de <code>u</code> del enlace oficial de L2Network. Es el username del propietario y puede diferir del nombre del servidor y del ID numérico de su página.', 'In Server ID on the Top, enter the exact <code>u</code> value from the official L2Network vote link. This is the listing owner username and may differ from the server name and the numeric details page ID.', 'В поле ID сервера на сайте укажите точное значение <code>u</code> из официальной ссылки L2Network. Это username владельца записи; он может отличаться от названия сервера и числового ID страницы.'],
+    integration_network_api: ['Informe também sua API Key. O link envia o login em <code>id</code>; a consulta POST envia <code>apiKey</code>, <code>type=2</code> e <code>player=login</code>. Se abrir <code>details///</code>, confira o username em <code>u</code>.', 'Introduce también tu API Key. El enlace envía el login en <code>id</code>; la consulta POST envía <code>apiKey</code>, <code>type=2</code> y <code>player=login</code>. Si abre <code>details///</code>, revisa el username en <code>u</code>.', 'Also enter your API Key. The link sends the login in <code>id</code>; the POST lookup sends <code>apiKey</code>, <code>type=2</code> and <code>player=login</code>. If it opens <code>details///</code>, check the username in <code>u</code>.', 'Также укажите API Key. Ссылка передаёт логин в <code>id</code>; POST-запрос передаёт <code>apiKey</code>, <code>type=2</code> и <code>player=login</code>. Если открывается <code>details///</code>, проверьте username в <code>u</code>.'],
+    integration_network_check: ['A resposta é um inteiro: <code>-1</code> não confirma voto, <code>0</code> não comprova voto recente e um timestamp positivo deve estar nas últimas 12 horas. Não precisa configurar postback.', 'La respuesta es un entero: <code>-1</code> no confirma el voto, <code>0</code> no demuestra un voto reciente y un timestamp positivo debe estar en las últimas 12 horas. No requiere postback.', 'The response is an integer: <code>-1</code> does not confirm a vote, <code>0</code> does not prove a recent vote, and a positive timestamp must fall within the last 12 hours. No postback setup is required.', 'Ответ — целое число: <code>-1</code> не подтверждает голос, <code>0</code> не доказывает недавний голос, а положительный timestamp должен попадать в последние 12 часов. Postback не требуется.'],
+    integration_hop_config: ['Informe o ID numérico do servidor e sua API Key. A API gera uma URL com <code>vote_id</code> vinculado ao login; use sempre o botão do painel para votar.', 'Introduce el ID numérico del servidor y tu API Key. La API genera una URL con <code>vote_id</code> vinculado al login; usa siempre el botón del panel.', 'Enter the numeric server ID and your API Key. The API generates a URL with a <code>vote_id</code> linked to the login; always vote using the panel button.', 'Укажите числовой ID сервера и API Key. API создаёт URL с <code>vote_id</code>, связанным с логином; голосуйте через кнопку панели.'],
+    integration_hop_check: ['A checagem exige <code>status=completed</code>, servidor e vote_id correspondentes, e voto recente. Voto pendente não libera recompensa. O IP só é consultado sem vínculo salvo para a conta. Não precisa configurar postback.', 'La consulta exige <code>status=completed</code>, servidor y vote_id correspondientes, y un voto reciente. Un voto pendiente no libera la recompensa. Solo se consulta el IP si no hay vínculo guardado para la cuenta. No requiere postback.', 'Verification requires <code>status=completed</code>, matching server and vote_id, and a recent vote. Pending votes do not unlock rewards. IP is checked only when there is no saved account link. No postback setup is required.', 'Проверка требует <code>status=completed</code>, совпадения сервера и vote_id и недавнего голоса. Ожидающий голос не открывает награду. IP проверяется только при отсутствии сохранённой связи с аккаунтом. Postback не требуется.'],
+    integration_postback_config: ['Informe o ID numérico do servidor. Copie o endereço abaixo para o campo <strong>Postback URL</strong> no painel do top. Clique no campo para selecionar o endereço completo:', 'Introduce el ID numérico del servidor. Copia la dirección de abajo en <strong>Postback URL</strong> del panel del top. Haz clic en el campo para seleccionar la dirección completa:', 'Enter the numeric server ID. Copy the address below into <strong>Postback URL</strong> in the ranking panel. Click the field to select the full address:', 'Укажите числовой ID сервера. Скопируйте адрес ниже в поле <strong>Postback URL</strong> панели сайта. Нажмите на поле, чтобы выделить полный адрес:'],
+    integration_mm_token: ['O campo Token recebe a API Key da página <strong>Vote Checker</strong> do MMTop200. Exemplo fictício (não válido): <code>0123456789abcdef0123456789abcdef</code>.', 'En Token introduce la API Key de <strong>Vote Checker</strong> de MMTop200. Ejemplo ficticio (no válido): <code>0123456789abcdef0123456789abcdef</code>.', 'The Token field takes the API Key from the MMTop200 <strong>Vote Checker</strong> page. Fictional example (not valid): <code>0123456789abcdef0123456789abcdef</code>.', 'В поле Token укажите API Key со страницы <strong>Vote Checker</strong> MMTop200. Вымышленный пример (недействителен): <code>0123456789abcdef0123456789abcdef</code>.'],
+    integration_mm_check: ['Use o validador oficial sem senha adicional de postback: a integração valida a origem. O link envia o login e o callback deve informar o usuário e o voto contabilizado.', 'Usa el validador oficial sin contraseña adicional de postback: la integración valida el origen. El enlace envía el login y el callback debe informar el usuario y el voto contabilizado.', 'Use the official validator without an extra postback password: the integration validates the source. The link sends the login and the callback must report the user and the counted vote.', 'Используйте официальный валидатор без дополнительного пароля postback: интеграция проверяет источник. Ссылка передаёт логин, callback должен сообщить пользователя и учтённый голос.'],
+    integration_gaming_config: ['Configure o callback na', 'Configura el callback en la', 'Configure the callback on the', 'Настройте callback на'],
+    integration_gaming_page: ['página de edição do GamingTop100', 'página de edición de GamingTop100', 'GamingTop100 edit page', 'странице редактирования GamingTop100'],
+    integration_no_token: ['Não precisa de token neste adaptador.', 'Este adaptador no requiere token.', 'This adapter does not require a token.', 'Этот адаптер не требует токена.'],
+    integration_gaming_check: ['O link envia uma referência numérica vinculada ao login; o callback devolve essa referência para identificar a conta.', 'El enlace envía una referencia numérica vinculada al login; el callback devuelve esa referencia para identificar la cuenta.', 'The link sends a numeric reference linked to the login; the callback returns this reference to identify the account.', 'Ссылка передаёт числовую ссылку, связанную с логином; callback возвращает её для определения аккаунта.'],
+    integration_arena_check: ['Mantenha <code>?postback=</code> no final do callback: o top acrescenta a referência do incentivo vinculada ao login. Não precisa de token neste adaptador.', 'Mantén <code>?postback=</code> al final del callback: el top añade la referencia del incentivo vinculada al login. Este adaptador no requiere token.', 'Keep <code>?postback=</code> at the end of the callback: the ranking appends the incentive reference linked to the login. This adapter does not require a token.', 'Оставьте <code>?postback=</code> в конце callback: сайт добавит ссылку поощрения, связанную с логином. Этот адаптер не требует токена.'],
+    integration_postback_check: ['Após salvar, conclua um voto permitido pelo botão do VoteSystem. A confirmação exige postback autenticado da conta; IP sozinho não libera recompensa. Se ficar pendente, procure “POSTBACK RECEBIDO” e rejeições em <code>vote_api.log</code>.', 'Tras guardar, completa un voto permitido desde el botón de VoteSystem. Se requiere un postback autenticado de la cuenta; el IP solo no libera la recompensa. Si queda pendiente, busca “POSTBACK RECEBIDO” y rechazos en <code>vote_api.log</code>.', 'After saving, complete an allowed vote using the VoteSystem button. Confirmation requires an authenticated account postback; IP alone does not unlock rewards. If it stays pending, look for “POSTBACK RECEBIDO” and rejections in <code>vote_api.log</code>.', 'После сохранения выполните допустимое голосование через кнопку VoteSystem. Требуется аутентифицированный postback аккаунта; одного IP недостаточно для награды. Если голос ожидает подтверждения, ищите “POSTBACK RECEBIDO” и отказы в <code>vote_api.log</code>.'],
+    integration_finish: ['URLs são geradas automaticamente. Vote em todos os tops ativos e volte para verificar e coletar. Cliques e falhas de consulta não liberam recompensa.', 'Las URLs se generan automáticamente. Vota en todos los tops activos y vuelve para verificar y recoger. Los clics y los errores de consulta no liberan la recompensa.', 'URLs are generated automatically. Vote on every active ranking site, then return to verify and claim. Clicks and failed lookups do not unlock rewards.', 'URL создаются автоматически. Проголосуйте на всех активных сайтах, затем вернитесь для проверки и получения награды. Клики и ошибки запросов не открывают награду.']
+  };
+  Object.keys(extra).forEach(function(key) {
+    SUPPORTED.forEach(function(lang, index) { dict[lang][key] = extra[key][index]; });
+  });
+
   /* ══════════════════════════════════════════════════════════════════════════
      FUNÇÕES CORE
   ══════════════════════════════════════════════════════════════════════════ */
 
   /** Retorna o idioma atual (leitura síncrona do localStorage, fallback cookie) */
   function getCurrentLang() {
-    var l = localStorage.getItem(STORAGE_KEY);
+    if (selectedLang) return selectedLang;
+    var l;
+    try { l = localStorage.getItem(STORAGE_KEY); } catch (e) {}
     if (!l || SUPPORTED.indexOf(l) === -1) {
       // fallback: lê do cookie
       var m = document.cookie.match('(?:^|;)\\s*' + STORAGE_KEY + '=([^;]+)');
@@ -783,21 +876,48 @@
   }
 
   /** Traduz mensagem do servidor usando msg_key (se disponível) */
-  function translateMsg(res) {
-    if (res.msg_key && dict[getCurrentLang()][res.msg_key] !== undefined) {
+  function translateMsg(res, lang) {
+    lang = lang || getCurrentLang();
+    if (res.msg_key && dict[lang][res.msg_key] !== undefined) {
       // Para msg_not_voted, inclui a lista de tops faltantes
       if (res.msg_key === 'msg_not_voted' && res.missing && res.missing.length) {
-        return t('msg_not_voted') + ' ' + res.missing.join(', ');
+        return t('msg_not_voted', lang) + ' ' + res.missing.join(', ');
       }
-      return t(res.msg_key);
+      return t(res.msg_key, lang);
     }
-    return res.msg || '';
+    var message = res.msg || '';
+    // Compatibilidade com avisos administrativos antigos salvos na sessão.
+    var normalized = message.replace('Nome, ID do Servidor e top são obrigatórios.', extra.admin_required_error[0]);
+    var keys = Object.keys(extra);
+    for (var i = 0; i < keys.length; i++) {
+      if (extra[keys[i]][0] === normalized) return t(keys[i], lang);
+    }
+    var match = message.match(/^Top "(.*)" adicionado com sucesso!$/);
+    if (match) return t('admin_top_added', lang).replace('{name}', match[1]);
+    match = message.match(/^(\d+) item\(s\) de reward adicionado\(s\)!$/);
+    if (match) return t('admin_rewards_added', lang).replace('{count}', match[1]);
+    return message;
   }
 
   /** Aplica todas as traduções ao DOM */
   function applyTranslations(lang) {
     lang = lang || getCurrentLang();
     var i, key;
+
+    var messages = document.querySelectorAll('[data-i18n-message]');
+    for (i = 0; i < messages.length; i++) {
+      messages[i].textContent = translateMsg({msg: messages[i].getAttribute('data-i18n-message')}, lang);
+    }
+    var ariaEls = document.querySelectorAll('[data-i18n-aria-label]');
+    for (i = 0; i < ariaEls.length; i++) {
+      ariaEls[i].setAttribute('aria-label', t(ariaEls[i].getAttribute('data-i18n-aria-label'), lang));
+    }
+    var removedTops = document.querySelectorAll('[data-i18n-top-name]');
+    for (i = 0; i < removedTops.length; i++) {
+      removedTops[i].textContent = removedTops[i].getAttribute('data-i18n-top-name').replace(/Top removido \(#(\d+)\)/g, function(match, id) {
+        return t('removed_top', lang) + ' (#' + id + ')';
+      });
+    }
 
     // data-i18n → textContent
     var els = document.querySelectorAll('[data-i18n]');
@@ -849,9 +969,10 @@
   /** Define o idioma e persiste */
   function setLang(lang) {
     if (SUPPORTED.indexOf(lang) === -1) return;
+    selectedLang = lang;
 
     // Persistência síncrona imediata (localStorage)
-    localStorage.setItem(STORAGE_KEY, lang);
+    try { localStorage.setItem(STORAGE_KEY, lang); } catch (e) {}
 
     // Cookie para PHP poder ler (step labels server-side)
     document.cookie = STORAGE_KEY + '=' + lang + ';path=/;max-age=31536000;SameSite=Lax';
@@ -872,9 +993,11 @@
     // Confirmação assíncrona via localForage
     if (w.localforage) {
       w.localforage.getItem(STORAGE_KEY).then(function(stored) {
-        if (stored && SUPPORTED.indexOf(stored) !== -1) {
-          localStorage.setItem(STORAGE_KEY, stored); // sincroniza
-          if (stored !== getCurrentLang()) {
+        if (!selectedLang && stored && SUPPORTED.indexOf(stored) !== -1) {
+          var previous = getCurrentLang();
+          try { localStorage.setItem(STORAGE_KEY, stored); } catch (e) {}
+          if (stored !== previous) {
+            selectedLang = stored;
             applyTranslations(stored);
           }
         }

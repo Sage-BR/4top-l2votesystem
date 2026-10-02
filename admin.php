@@ -261,10 +261,10 @@ renderNav();
   </div>
 
   <?php if ($success): ?>
-  <div class="alert alert-success">✓ <?= e($success) ?></div>
+  <div class="alert alert-success">✓ <span data-i18n-message="<?= e($success) ?>"><?= e($success) ?></span></div>
   <?php endif; ?>
   <?php if ($error): ?>
-  <div class="alert alert-error">✗ <?= e($error) ?></div>
+  <div class="alert alert-error">✗ <span data-i18n-message="<?= e($error) ?>"><?= e($error) ?></span></div>
   <?php endif; ?>
 
   <div class="admin-grid">
@@ -345,9 +345,9 @@ renderNav();
             placeholder="Cole o token gerado no painel do site de votação">
         </div>
 
-        <p style="font-size:.75rem;color:var(--text-dim)">Preencha os dados do top. A URL de voto é gerada automaticamente.</p>
+        <p style="font-size:.75rem;color:var(--text-dim)" data-i18n="admin_top_hint">Preencha os dados do top. A URL de voto é gerada automaticamente.</p>
         <button type="button" id="addIntegrationHelp" class="integration-help" disabled aria-haspopup="dialog"
-          onclick="openSelectedIntegration()"><span class="integration-help-icon" aria-hidden="true">?</span> Instrução de integração</button>
+          onclick="openSelectedIntegration()"><span class="integration-help-icon" aria-hidden="true">?</span> <span data-i18n="admin_integration_help">Instrução de integração</span></button>
 
         <button type="submit" class="btn btn-primary btn-full" data-i18n="admin_btn_add_top">✓ Adicionar Top</button>
       </form>
@@ -355,7 +355,7 @@ renderNav();
 
     <!-- ── Tops List ── -->
     <div class="card">
-      <div class="card-title">🏆 <span data-i18n="admin_tops_list_title">Tops Cadastrados</span> (<?= count($tops) ?>)</div>
+      <div class="card-title"><span data-i18n="admin_tops_list_title">🏆 Tops Cadastrados</span> (<?= count($tops) ?>)</div>
 
       <?php if (empty($tops)): ?>
       <p style="font-size:.85rem;color:var(--text-dim)" data-i18n="admin_no_tops">Nenhum top cadastrado ainda.</p>
@@ -369,7 +369,7 @@ renderNav();
               <span><?= e($top['top_btn'] ?: 'Top externo') ?></span>
               <button type="button" class="integration-help" aria-label="Como integrar <?= e($top['name']) ?>"
                 title="Como integrar" aria-haspopup="dialog" aria-controls="integration-<?= (int)$top['id'] ?>"
-                onclick="openIntegration(<?= (int)$top['id'] ?>)"><span class="integration-help-icon" aria-hidden="true">?</span> Instrução de integração</button>
+                onclick="openIntegration(<?= (int)$top['id'] ?>)"><span class="integration-help-icon" aria-hidden="true">?</span> <span data-i18n="admin_integration_help">Instrução de integração</span></button>
             </div>
             <span class="badge <?= $top['enabled'] ? 'badge-success' : 'badge-danger' ?>"
               data-i18n="<?= $top['enabled'] ? 'badge_active' : 'badge_inactive' ?>">
@@ -392,7 +392,7 @@ renderNav();
           <div class="top-admin-actions">
             <button class="btn btn-ghost btn-sm" type="button"
               onclick="toggleTopEdit(<?= (int)$top['id'] ?>)"
-              title="Editar">✎ Editar</button>
+              data-i18n="admin_edit" data-i18n-title="admin_edit" title="Editar">✎ Editar</button>
             <?php if (($top['top_btn'] ?? '') === '4top.php'): ?>
             <button class="btn btn-ghost btn-sm" disabled
               data-i18n-title="title_4top_no_disable"
@@ -415,7 +415,7 @@ renderNav();
               <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
               <input type="hidden" name="action" value="remove_top">
               <input type="hidden" name="id" value="<?= (int)$top['id'] ?>">
-              <button class="btn btn-danger btn-sm" type="submit" title="Remover">🗑</button>
+              <button class="btn btn-danger btn-sm" type="submit" data-i18n-title="admin_remove" title="Remover">🗑</button>
             </form>
           </div>
 
@@ -427,26 +427,26 @@ renderNav();
 
               <div class="top-edit-grid">
                 <div>
-                  <label class="form-label">Nome do Top</label>
+                  <label class="form-label" data-i18n="admin_top_name_label">Nome do Top</label>
                   <input type="text" name="top_name" class="form-control"
                     value="<?= e($top['name']) ?>" maxlength="100" required>
                 </div>
                 <div>
-                  <label class="form-label">ID do Servidor</label>
+                  <label class="form-label" data-i18n="admin_top_id_label">ID do Servidor</label>
                   <input type="text" name="top_id" class="form-control"
                     value="<?= e($top['top_id']) ?>" maxlength="200" required>
                 </div>
                 <div>
-                  <label class="form-label">Token / API Key</label>
+                  <label class="form-label" data-i18n="admin_token_label">Token / API Key</label>
                   <input type="password" name="top_token" class="form-control"
-                    placeholder="Deixe vazio para manter o atual" autocomplete="new-password">
+                    data-i18n-placeholder="admin_keep_token" placeholder="Deixe vazio para manter o atual" autocomplete="new-password">
                 </div>
               </div>
 
               <div class="top-edit-actions">
                 <button type="button" class="btn btn-ghost btn-sm"
-                  onclick="toggleTopEdit(<?= (int)$top['id'] ?>)">Cancelar</button>
-                <button type="submit" class="btn btn-primary btn-sm">✓ Salvar alterações</button>
+                  data-i18n="admin_cancel" onclick="toggleTopEdit(<?= (int)$top['id'] ?>)">Cancelar</button>
+                <button type="submit" class="btn btn-primary btn-sm" data-i18n="admin_save_changes">✓ Salvar alterações</button>
               </div>
             </form>
           </div>
@@ -501,7 +501,7 @@ renderNav();
 
     <!-- ── Rewards List ── -->
     <div class="card">
-      <div class="card-title">📦 <span data-i18n="admin_rewards_list_title">Rewards Configurados</span> (<?= count($rewards) ?>)</div>
+      <div class="card-title"><span data-i18n="admin_rewards_list_title">📦 Rewards Configurados</span> (<?= count($rewards) ?>)</div>
 
       <?php if (empty($rewards)): ?>
       <p style="font-size:.85rem;color:var(--text-dim)" data-i18n="admin_no_rewards">Nenhum reward configurado.</p>
@@ -548,19 +548,19 @@ renderNav();
 
     <div class="card">
       <div class="card-title">🛡 Anticheat</div>
-      <p style="font-size:.82rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.5">
+      <p style="font-size:.82rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.5" data-i18n="anticheat_desc">
         Bloqueia a tela de voto quando a conexão parecer VPN, proxy ou rede suspeita.
       </p>
       <form method="POST" action="admin.php">
         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
         <input type="hidden" name="action" value="toggle_anticheat">
         <input type="hidden" name="anticheat_enabled" value="<?= $anticheatEnabled ? '0' : '1' ?>">
-        <button type="submit" class="btn btn-primary btn-full">
+        <button type="submit" class="btn btn-primary btn-full" data-i18n="<?= $anticheatEnabled ? 'anticheat_disable' : 'anticheat_enable' ?>">
           <?= $anticheatEnabled ? 'Desativar anticheat' : 'Ativar anticheat' ?>
         </button>
       </form>
       <div style="font-size:.72rem;color:var(--text-dim);margin-top:.6rem">
-        Status atual: <strong><?= $anticheatEnabled ? 'Ativo' : 'Desativado' ?></strong>
+        <span data-i18n="anticheat_status">Status atual:</span> <strong data-i18n="<?= $anticheatEnabled ? 'anticheat_active' : 'anticheat_inactive' ?>"><?= $anticheatEnabled ? 'Ativo' : 'Desativado' ?></strong>
       </div>
     </div>
 
@@ -594,7 +594,8 @@ renderNav();
             <td>
               <?php foreach (explode(', ', $log['tops_voted'] ?? '') as $t): ?>
               <span style="display:inline-block;background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.3);
-                border-radius:4px;padding:1px 6px;font-size:.72rem;margin:1px 2px;color:var(--gold-light)">
+                border-radius:4px;padding:1px 6px;font-size:.72rem;margin:1px 2px;color:var(--gold-light)"
+                data-i18n-top-name="<?= e(trim($t)) ?>">
                 <?= e(trim($t)) ?>
               </span>
               <?php endforeach; ?>
@@ -618,24 +619,24 @@ renderNav();
 
   <div class="card" style="margin-top:1.5rem">
     <div class="flex-between" style="margin-bottom:1rem">
-      <div class="card-title" style="margin:0">🛡 Detecções do Anticheat</div>
-      <span style="font-size:.75rem;color:var(--text-dim)">Últimos 15 bloqueios</span>
+      <div class="card-title" style="margin:0" data-i18n="anticheat_log_title">🛡 Detecções do Anticheat</div>
+      <span style="font-size:.75rem;color:var(--text-dim)" data-i18n="anticheat_log_subtitle">Últimos 15 bloqueios</span>
     </div>
 
     <?php if (empty($recent_anticheat)): ?>
-    <p style="font-size:.85rem;color:var(--text-dim)">Nenhuma detecção registrada ainda.</p>
+    <p style="font-size:.85rem;color:var(--text-dim)" data-i18n="anticheat_no_log">Nenhuma detecção registrada ainda.</p>
     <?php else: ?>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Login</th>
-            <th>IP</th>
-            <th>Risco</th>
-            <th>Motivo</th>
-            <th>Fonte</th>
-            <th>Status</th>
-            <th>Data/Hora</th>
+            <th data-i18n="col_login">Login</th>
+            <th data-i18n="col_ip">IP</th>
+            <th data-i18n="col_risk">Risco</th>
+            <th data-i18n="col_reason">Motivo</th>
+            <th data-i18n="col_source">Fonte</th>
+            <th data-i18n="col_status">Status</th>
+            <th data-i18n="col_datetime">Data/Hora</th>
           </tr>
         </thead>
         <tbody>
@@ -647,7 +648,7 @@ renderNav();
             <td style="font-size:.78rem;color:var(--text-secondary)"><?= e($row['reason'] ?: '—') ?></td>
             <td style="font-size:.78rem;color:var(--text-secondary)"><?= e($row['source'] ?: '—') ?></td>
             <td>
-              <span class="badge <?= $row['blocked'] ? 'badge-danger' : 'badge-gold' ?>">
+              <span class="badge <?= $row['blocked'] ? 'badge-danger' : 'badge-gold' ?>" data-i18n="<?= $row['blocked'] ? 'anticheat_blocked' : 'anticheat_alert' ?>">
                 <?= $row['blocked'] ? 'Bloqueado' : 'Apenas alerta' ?>
               </span>
             </td>

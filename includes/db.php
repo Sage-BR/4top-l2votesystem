@@ -36,7 +36,7 @@ function getDB() {
 
         if ($isAjax) {
             header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(array('error' => true, 'message' => 'Service temporarily unavailable.'));
+            echo json_encode(array('error' => true, 'msg_key' => 'msg_service_unavailable', 'message' => 'Service temporarily unavailable.'));
             exit;
         }
 

@@ -62,7 +62,7 @@ function renderHead($pageTitle = '') {
     // i18n: localForage (IndexedDB/WebSQL/localStorage) + sistema de idiomas
     echo '<script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" integrity="sha384-MTDrIlFOzEqpmOxY6UIA/1Zkh0a64UlmJ6R0UrZXqXCPx99siPGi8EmtQjIeCcTH"></script>';
     echo '<script src="https://unpkg.com/@fingerprintjs/fingerprintjs@4/dist/fp.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>';
-    echo '<script src="assets/js/i18n.js"></script>';
+    echo '<script src="assets/js/i18n.js?v=' . filemtime(__DIR__ . '/../assets/js/i18n.js') . '"></script>';
     echo '</head>';
     echo '<body>';
     echo '<div class="wrapper">';

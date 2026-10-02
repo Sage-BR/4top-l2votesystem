@@ -37,6 +37,7 @@ try {
         if ($anticheatBlocked && in_array($_POST['action'], array('check_votes', 'claim_reward'), true)) {
             echo json_encode(array(
                 'status' => 'error',
+                'msg_key' => 'msg_access_blocked',
                 'msg'    => 'Acesso bloqueado: detectamos uso de VPN/proxy ou rede suspeita. Desative e tente novamente.',
                 'anticheat' => $anticheat,
             ));
@@ -45,7 +46,7 @@ try {
 
         if ($_POST['action'] === 'check_votes') {
             if (!verifyCsrf(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '')) {
-                echo json_encode(array('status' => 'error', 'msg' => '❌ Requisição inválida.'));
+                echo json_encode(array('status' => 'error', 'msg_key' => 'msg_invalid_request', 'msg' => '❌ Requisição inválida.'));
                 exit;
             }
             $hwid = isset($_POST['hwid']) ? substr(trim($_POST['hwid']), 0, 128) : '';
@@ -56,12 +57,12 @@ try {
 
         if ($_POST['action'] === 'claim_reward') {
             if (!verifyCsrf(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '')) {
-                echo json_encode(array('status' => 'error', 'msg' => '❌ Requisição inválida.'));
+                echo json_encode(array('status' => 'error', 'msg_key' => 'msg_invalid_request', 'msg' => '❌ Requisição inválida.'));
                 exit;
             }
             $objId = (int)(isset($_POST['obj_id']) ? $_POST['obj_id'] : 0);
             if ($objId <= 0) {
-                echo json_encode(array('status' => 'error', 'msg' => '❌ Selecione um personagem.'));
+                echo json_encode(array('status' => 'error', 'msg_key' => 'msg_select_char', 'msg' => '❌ Selecione um personagem.'));
                 exit;
             }
             $hwid = isset($_POST['hwid']) ? trim($_POST['hwid']) : '';
@@ -158,7 +159,7 @@ try {
     http_response_code(500);
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         header('Content-Type: application/json; charset=UTF-8');
-        echo json_encode(array('status' => 'error', 'msg' => 'Erro interno ao processar a recompensa. Consulte o log do servidor.'));
+        echo json_encode(array('status' => 'error', 'msg_key' => 'msg_internal_error', 'msg' => 'Erro interno ao processar a recompensa. Consulte o log do servidor.'));
         exit;
     }
     echo 'Erro interno ao abrir a página de voto.';
@@ -177,8 +178,8 @@ try {
 
   <?php if (!empty($anticheatBlocked)): ?>
   <div class="alert alert-warning" style="text-align:center;padding:1.25rem 1.5rem;margin-bottom:1.5rem">
-    <strong style="display:block;margin-bottom:.35rem">Acesso temporariamente bloqueado</strong>
-    <span style="font-size:.9rem;line-height:1.6">
+    <strong style="display:block;margin-bottom:.35rem" data-i18n="access_blocked_title">Acesso temporariamente bloqueado</strong>
+    <span style="font-size:.9rem;line-height:1.6" data-i18n="access_blocked_desc">
       Detectamos sinais de VPN/proxy ou conexão suspeita neste acesso.
       Para votar e receber recompensa, desative a VPN/proxy e recarregue a página.
     </span>
@@ -249,7 +250,7 @@ foreach ($tops_status as $idx => $top):
           <div class="top-name"><?= e($top['name']) ?></div>
           <div class="top-status <?= $top['can_vote'] ? 'ok' : 'pending' ?>" style="justify-content:center"
                id="topStatus_<?= $top['id'] ?>"
-               data-i18n="<?= $top['can_vote'] ? 'top_available_status' : 'top_cooldown_status' ?>">
+               data-i18n="<?= $top['can_vote'] ? 'top_available_status' : (!empty($top['voted_by_other']) ? 'top_ip_cooldown' : 'top_cooldown_status') ?>">
             <?= $top['can_vote'] ? '● Disponível' : (!empty($top['voted_by_other']) ? '⏳ IP em Cooldown' : '⏳ Em cooldown') ?>
           </div>
         </div>
@@ -264,17 +265,17 @@ foreach ($tops_status as $idx => $top):
           <?php if ($top['can_vote'] && empty($anticheatBlocked)): ?>
           <a href="<?= $vote_url ?>" target="_blank" rel="noopener"
             class="vote-img-btn"
-            title="Votar em <?= e($top['name']) ?>">
+            data-i18n-title="top_vote_title" title="Votar em <?= e($top['name']) ?>">
             <img src="<?= e($img_path) ?>" alt="<?= e($top['name']) ?>" loading="eager"
               onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
-            <span style="display:none">⚔ Votar</span>
+            <span style="display:none" data-i18n="top_vote">⚔ Votar</span>
           </a>
           <?php else: ?>
-          <div class="vote-img-btn voted-overlay" title="Já votado">
+          <div class="vote-img-btn voted-overlay" data-i18n-title="top_voted_title" title="Já votado">
             <img src="<?= e($img_path) ?>" alt="<?= e($top['name']) ?>" loading="eager"
               style="opacity:.35;filter:grayscale(1)"
               onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
-            <span style="display:none;opacity:.4">✓ Votado</span>
+            <span style="display:none;opacity:.4" data-i18n="top_voted">✓ Votado</span>
             <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
               font-size:.85rem;color:var(--gold);font-weight:600;text-shadow:0 0 6px rgba(0,0,0,.8)">
               ✓
@@ -472,8 +473,8 @@ function doClaimReward(btn) {
                 'border:1px solid rgba(45,138,90,.4);border-radius:10px;padding:1.5rem 2rem;' +
                 'display:inline-block;max-width:480px;width:100%;text-align:center">' +
                 '<div style="font-size:2rem;margin-bottom:.5rem">✅</div>' +
-                '<div style="font-size:1rem;font-weight:700;color:#4ade80;margin-bottom:.3rem">' + _t('reward_delivered_title') + '</div>' +
-                '<div style="font-size:.8rem;color:var(--text-dim)">' + _t('reward_delivered_sub') + '</div></div>';
+                '<div style="font-size:1rem;font-weight:700;color:#4ade80;margin-bottom:.3rem" data-i18n="reward_delivered_title">' + _t('reward_delivered_title') + '</div>' +
+                '<div style="font-size:.8rem;color:var(--text-dim)" data-i18n="reward_delivered_sub">' + _t('reward_delivered_sub') + '</div></div>';
             } else if (res.status === 'cooldown') {
                 showToast(_tm(res) || _t('msg_cooldown'), 'cooldown');
                 btn.disabled = false; btn.style.opacity = '1'; btn.textContent = _t('btn_claim_reward');
@@ -518,6 +519,7 @@ function ajax(url, formData, onSuccess, onError) {
         }
         if (!res.status && res.error) {
             res.status = 'error';
+            res.msg_key = res.msg_key || 'msg_service_unavailable';
             res.msg = res.message || _t('msg_connect_error');
         }
         // Erros ao atualizar a interface não são falhas de conexão.
