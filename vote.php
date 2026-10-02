@@ -8,7 +8,7 @@ if (!file_exists(__DIR__ . '/.installed')) { header('Location: install.php'); ex
 if (!file_exists(__DIR__ . '/config.php')) { header('Location: index.php'); exit; }
 
 require_once __DIR__ . '/includes/reward_debug.php';
-$rewardDebugRequest = isset($_POST['action']) && $_POST['action'] === 'claim_reward';
+$rewardDebugRequest = isset($_POST['action']) && in_array($_POST['action'], array('claim_reward', 'check_votes'), true);
 if ($rewardDebugRequest) {
     rewardDebug('request_received');
     register_shutdown_function(function() {
@@ -501,6 +501,8 @@ function doClaimReward(btn) {
 function ajax(url, formData, onSuccess, onError) {
     var xhr = new XMLHttpRequest();
     xhr.open('POST', url, true);
+    xhr.setRequestHeader('Accept', 'application/json');
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
     xhr.onreadystatechange = function() {
         if (xhr.readyState !== 4) return;
         var res;

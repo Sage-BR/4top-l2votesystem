@@ -22,13 +22,17 @@ function getDB() {
         );
         $pdo->exec("SET time_zone = '+00:00'");
     } catch (PDOException $e) {
+        if (function_exists('rewardDebug') && !empty($GLOBALS['rewardDebugRequest'])) {
+            rewardDebug('db_connection_exception', $e);
+        }
         error_log('[VoteSystem] DB connection failed: ' . $e->getMessage());
         http_response_code(503);
 
         // Se for requisição AJAX ou API → JSON
         $isAjax = (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest')
                || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false)
-               || (basename($_SERVER['SCRIPT_NAME'] ?? '') === 'voteapi.php');
+               || (basename($_SERVER['SCRIPT_NAME'] ?? '') === 'voteapi.php')
+               || (isset($_POST['action']) && in_array($_POST['action'], array('check_votes', 'claim_reward'), true));
 
         if ($isAjax) {
             header('Content-Type: application/json; charset=utf-8');
