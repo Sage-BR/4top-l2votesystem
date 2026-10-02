@@ -141,6 +141,11 @@ try {
 } catch (Throwable $e) {
     error_log('[VoteSystem] vote.php fatal: ' . $e->getMessage());
     http_response_code(500);
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+        header('Content-Type: application/json; charset=UTF-8');
+        echo json_encode(array('status' => 'error', 'msg' => 'Erro interno ao processar a recompensa. Consulte o log do servidor.'));
+        exit;
+    }
     echo 'Erro interno ao abrir a página de voto.';
     exit;
 }
@@ -483,9 +488,25 @@ function ajax(url, formData, onSuccess, onError) {
     xhr.open('POST', url, true);
     xhr.onreadystatechange = function() {
         if (xhr.readyState !== 4) return;
-        try { var res = JSON.parse(xhr.responseText); onSuccess(res); }
-        catch(e) { onError && onError(); }
+        var res;
+        try { res = JSON.parse(xhr.responseText); }
+        catch(e) {
+            console.error('[VoteSystem] Resposta inválida do servidor. HTTP:', xhr.status);
+            onError && onError();
+            return;
+        }
+        if (!res || typeof res !== 'object') {
+            onError && onError();
+            return;
+        }
+        if (!res.status && res.error) {
+            res.status = 'error';
+            res.msg = res.message || _t('msg_connect_error');
+        }
+        // Erros ao atualizar a interface não são falhas de conexão.
+        onSuccess(res);
     };
+    xhr.onerror = function() { onError && onError(); };
     xhr.send(formData);
 }
 
