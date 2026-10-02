@@ -622,7 +622,9 @@ function claimReward($login, $objId, $hwid = null) {
         foreach ($claimLocks as $claimLock) {
             $lockStmt = $db->prepare('SELECT GET_LOCK(?, 5)');
             $lockStmt->execute(array($claimLock));
-            if ((int)$lockStmt->fetchColumn() !== 1) return array('status' => 'error', 'msg' => 'Entrega em andamento. Tente novamente.');
+            $acquired = (int)$lockStmt->fetchColumn() === 1;
+            $lockStmt->closeCursor();
+            if (!$acquired) return array('status' => 'error', 'msg' => 'Entrega em andamento. Tente novamente.');
             $heldLocks[] = $claimLock;
         }
         $db->beginTransaction();
@@ -710,6 +712,8 @@ function claimReward($login, $objId, $hwid = null) {
             rewardDebug('release_claim_lock');
             $lockStmt = $db->prepare('SELECT RELEASE_LOCK(?)');
             $lockStmt->execute(array($claimLock));
+            $lockStmt->fetchColumn();
+            $lockStmt->closeCursor();
         }
     }
 }

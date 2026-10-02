@@ -170,15 +170,18 @@ function _deliverRewardsGame($login, array $rewards, $db, $objId = null) {
             break;
     }
 
-    foreach ($rewards as $r) {
-        // L2Mythras tem object_id antes de owner_id no INSERT
-        if (GAME_PROJECT === 'l2mythras') {
-            $ins->execute(array(++$maxId, $ownerId, (int)$r['item_id'], (int)$r['quantity']));
-        } else {
-            $ins->execute(array($ownerId, ++$maxId, (int)$r['item_id'], (int)$r['quantity']));
+    try {
+        foreach ($rewards as $r) {
+            // L2Mythras tem object_id antes de owner_id no INSERT
+            if (GAME_PROJECT === 'l2mythras') {
+                $ins->execute(array(++$maxId, $ownerId, (int)$r['item_id'], (int)$r['quantity']));
+            } else {
+                $ins->execute(array($ownerId, ++$maxId, (int)$r['item_id'], (int)$r['quantity']));
+            }
         }
+    } finally {
+        _releaseObjectIdLock($db);
     }
-    $db->exec("SELECT RELEASE_LOCK('vs_nextObjectId')");
     return true;
 }
 
@@ -193,14 +196,29 @@ function _resolveOwnerId($login, $objId, $db) {
 
 function _nextObjectId($db) {
     // Usa GET_LOCK para serializar geração de object_id (evita race em SELECT MAX)
-    $db->exec("SELECT GET_LOCK('vs_nextObjectId', 5)");
-    $stmt = $db->query("SELECT COALESCE(MAX(object_id), 268435456) FROM items FOR UPDATE");
-    $id = (int)$stmt->fetchColumn();
+    $lock = $db->query("SELECT GET_LOCK('vs_nextObjectId', 5)");
+    $acquired = (int)$lock->fetchColumn() === 1;
+    $lock->closeCursor();
+    if (!$acquired) throw new RuntimeException('Não foi possível obter a trava de IDs dos itens.');
+    try {
+        $stmt = $db->query("SELECT COALESCE(MAX(object_id), 268435456) FROM items FOR UPDATE");
+        $id = (int)$stmt->fetchColumn();
+        $stmt->closeCursor();
+    } catch (Throwable $e) {
+        _releaseObjectIdLock($db);
+        throw $e;
+    }
     // lock liberado após commit/rollback pelo chamador; fallback libera aqui se não estiver em transação
     if (!$db->inTransaction()) {
-        $db->exec("SELECT RELEASE_LOCK('vs_nextObjectId')");
+        _releaseObjectIdLock($db);
     }
     return $id;
+}
+
+function _releaseObjectIdLock($db) {
+    $stmt = $db->query("SELECT RELEASE_LOCK('vs_nextObjectId')");
+    $stmt->fetchColumn();
+    $stmt->closeCursor();
 }
 
 // ── IP do cliente ─────────────────────────────────────────────────────────────
