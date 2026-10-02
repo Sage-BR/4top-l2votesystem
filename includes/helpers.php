@@ -579,6 +579,8 @@ function checkVotes($login, $ip, $hwid = '') {
  * @return array  ('status', 'msg')
  */
 function claimReward($login, $objId, $hwid = null) {
+    require_once __DIR__ . '/reward_debug.php';
+    rewardDebug('session_validation');
     startSession();
     $login = trim((string)$login);
     
@@ -604,6 +606,7 @@ function claimReward($login, $objId, $hwid = null) {
     session_write_close();
 
     // Valida que o personagem pertence à conta
+    rewardDebug('character_validation');
     if (!gameCharBelongsTo($login, $objId)) {
         return array('status' => 'error', 'msg' => '❌ Personagem inválido.');
     }
@@ -615,6 +618,7 @@ function claimReward($login, $objId, $hwid = null) {
     sort($claimLocks, SORT_STRING);
     $heldLocks = array();
     try {
+        rewardDebug('claim_locks');
         foreach ($claimLocks as $claimLock) {
             $lockStmt = $db->prepare('SELECT GET_LOCK(?, 5)');
             $lockStmt->execute(array($claimLock));
@@ -622,6 +626,7 @@ function claimReward($login, $objId, $hwid = null) {
             $heldLocks[] = $claimLock;
         }
         $db->beginTransaction();
+        rewardDebug('transaction_started');
 
         // Cooldown check dentro da transação com FOR UPDATE
         $chk = $db->prepare(
@@ -637,6 +642,7 @@ function claimReward($login, $objId, $hwid = null) {
         }
 
         // Registra votos confirmados com o timestamp real do voto
+        rewardDebug('vote_logs');
         $stmtLog = $db->prepare(
             "INSERT INTO 4top_log (login, ip, top_id, voted_at, rewarded)
              VALUES (?, ?, ?, FROM_UNIXTIME(?), 0)"
@@ -654,17 +660,20 @@ function claimReward($login, $objId, $hwid = null) {
         }
 
         // Registra o claim com HWID
+        rewardDebug('claim_record');
         $db->prepare(
             "INSERT INTO 4top_reward_claims (login, claimed_at, hwid) VALUES (?, NOW(), ?)"
         )->execute(array($login, $hwid ?: null));
 
         // Entrega rewards no personagem escolhido
+        rewardDebug('items_delivery');
         $rewards = getRewards();
         if (!empty($rewards)) {
             gameDeliverRewards($login, $rewards, $db, (int)$objId);
         }
 
         // Marca logs como recompensados
+        rewardDebug('mark_rewarded');
         $confirmedTopIds = array_values(array_unique(array_filter(array_map('intval', array_keys($confirmed)), function ($id) {
             return $id > 0;
         })));
@@ -679,6 +688,7 @@ function claimReward($login, $objId, $hwid = null) {
         }
 
         $db->commit();
+        rewardDebug('transaction_committed');
 
         startSession();
         if (isset($_SESSION['vs_login'], $_SESSION['vs_confirmed_votes'])
@@ -691,11 +701,13 @@ function claimReward($login, $objId, $hwid = null) {
         return array('status' => 'ok', 'msg' => '🎁 Recompensa entregue com sucesso!');
 
     } catch (Throwable $e) {
+        rewardDebug('delivery_exception', $e);
         if ($db->inTransaction()) $db->rollBack();
         error_log('[VoteSystem] claimReward error: ' . $e->getMessage());
         return array('status' => 'error', 'msg' => '❌ Erro ao entregar recompensa. Tente novamente.');
     } finally {
         foreach (array_reverse($heldLocks) as $claimLock) {
+            rewardDebug('release_claim_lock');
             $lockStmt = $db->prepare('SELECT RELEASE_LOCK(?)');
             $lockStmt->execute(array($claimLock));
         }

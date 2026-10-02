@@ -7,6 +7,17 @@
 if (!file_exists(__DIR__ . '/.installed')) { header('Location: install.php'); exit; }
 if (!file_exists(__DIR__ . '/config.php')) { header('Location: index.php'); exit; }
 
+require_once __DIR__ . '/includes/reward_debug.php';
+$rewardDebugRequest = isset($_POST['action']) && $_POST['action'] === 'claim_reward';
+if ($rewardDebugRequest) {
+    rewardDebug('request_received');
+    register_shutdown_function(function() {
+        $error = error_get_last();
+        if ($error && in_array($error['type'], array(E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR), true)) {
+            rewardDebug('fatal_shutdown', new ErrorException('Fatal PHP error', 0, $error['type'], $error['file'], $error['line']));
+        }
+    });
+}
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/engine/anticheat.php';
@@ -54,7 +65,10 @@ try {
                 exit;
             }
             $hwid = isset($_POST['hwid']) ? trim($_POST['hwid']) : '';
-            echo json_encode(claimReward($login, $objId, $hwid));
+            rewardDebug('claim_start');
+            $claimResult = claimReward($login, $objId, $hwid);
+            rewardDebug('claim_result_' . $claimResult['status']);
+            echo json_encode($claimResult);
             exit;
         }
     }
@@ -139,6 +153,7 @@ try {
     renderHead('Votar');
     renderNav();
 } catch (Throwable $e) {
+    if ($rewardDebugRequest) rewardDebug('request_exception', $e);
     error_log('[VoteSystem] vote.php fatal: ' . $e->getMessage());
     http_response_code(500);
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {

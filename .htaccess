@@ -1,5 +1,5 @@
 # Bloqueia acesso a arquivos sensíveis
-<FilesMatch "^(config\.php|\.env|voteapi\.log|vote_register\.log)">
+<FilesMatch "^(config\.php|\.env|voteapi\.log|vote_register\.log|reward_delivery\.log)">
     Order allow,deny
     Deny from all
 </FilesMatch>
