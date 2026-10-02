@@ -16,11 +16,12 @@ O VoteSystem é um painel web que permite aos jogadores do seu servidor votarem 
 |---|---|
 | **4TOP** *(obrigatório)* | [top.4teambr.com](https://top.4teambr.com) |
 | **L2JBrasil** | [top.l2jbrasil.com](https://top.l2jbrasil.com) |
-| **Hopzone.net** | [l2.hopzone.net](https://l2.hopzone.net) |
 | **Hopzone.eu** | [hopzone.eu](https://hopzone.eu) |
-| **iTopZ** | [itopz.com](https://itopz.com) |
+| **MMTop200** | [mmtop200.com](https://mmtop200.com) |
+| **GamingTop100** | [gamingtop100.net](https://www.gamingtop100.net) |
+| **Top100Arena** | [top100arena.com](https://www.top100arena.com) |
 | **L2Top.org** | [l2top.org](https://l2top.org) |
-| **ArenaTop100** | [arena-top100.com](https://www.arena-top100.com) |
+| **L2Network** | [l2network.eu](https://l2network.eu) |
 
 > O **4TOP** é obrigatório para o sistema funcionar. Os demais são opcionais e configuráveis pelo painel de admin.
 
@@ -36,6 +37,26 @@ Cliques, votos pendentes e falhas da API não confirmam votos nem entregam recom
 Publique também `includes/hopzoneeu.php` e `assets/buttons/hopzoneu.png`.
 A tabela `4top_hopzone_votes` é criada automaticamente na atualização do schema.
 Contrato: https://hopzone.eu/docs.html/
+
+### MMTop200, GamingTop100 e Top100Arena
+
+Integrações adaptadas do painel Loong: confirmação por postback autenticado e vinculado
+ao login. Checker por IP não comprova a conta e não libera a recompensa nesses tops.
+O horário da primeira confirmação por postback é preservado durante a janela de 12h.
+Registros antigos confirmados somente por IP não substituem um postback da conta.
+MMTop200 envia o login no link; GamingTop100 e Top100Arena exigem uma referência numérica,
+associada ao login na tabela automática `4top_postback_refs`.
+Cadastre o ID numérico no admin e, para MMTop200, o Vote Checker Token no campo Token.
+Configure o endereço HTTPS completo de `voteapi.php` como callback de MMTop200/GamingTop100;
+no Top100Arena, use `voteapi.php?postback=` (o top acrescenta a referência do incentivo).
+O admin exibe o link de configuração de cada cadastro. MMTop200 valida a origem DNS
+`validator.mmtop200.com` sem senha adicional; GamingTop100 usa `gamingtop100.net`.
+Top100Arena usa a origem `3.86.48.116` do código de referência. Para origens oficiais
+atualizadas, `VOTE_POSTBACK_ALLOWED_IPS` pode ser definido em config.php como um array
+de nomes de botão (`mmtop200.php`, `gamingtop100.php`, `top100arena.php`) para listas de IPs.
+Callbacks rejeitam origens não autorizadas, não entregam recompensas diretamente e
+duplicatas na janela de 12h não renovam o horário. Cliques não confirmam votos.
+GamingTop100: https://www.gamingtop100.net/vote-check
 
 ---
 

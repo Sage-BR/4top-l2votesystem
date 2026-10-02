@@ -99,7 +99,7 @@ try {
             }
         }
 
-        if ($can_vote) {
+        if ($can_vote && !postbackTopSupported($top['top_btn'])) {
             $dbVote = getLastVote($login, $top['id'], $ip);
             if ($dbVote && (int)$dbVote['seconds_ago'] < 43200) {
                 $cooldown_left = 43200 - (int)$dbVote['seconds_ago'];

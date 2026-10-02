@@ -28,6 +28,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $top_btn = basename(trim($_POST['top_btn'] ?? ''));
 
         $url_templates = array(
+            'mmtop200.php' => 'https://mmtop200.com/vote/{SERVER_ID}',
+            'gamingtop100.php' => 'https://www.gamingtop100.net/in-{SERVER_ID}',
+            'top100arena.php' => 'https://www.top100arena.com/listing/{SERVER_ID}/vote',
             'hopzoneu.php' => 'https://hopzone.eu/vote/{SERVER_ID}',
             'l2jbrasil.php'   => 'https://top.l2jbrasil.com/index.php?a=in&u={SERVER_ID}',
             '4top.php'        => 'https://top.4teambr.com/index.php?a=in&u={SERVER_ID}',
@@ -39,6 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Nome, ID do Servidor e Top são obrigatórios.';
         } elseif (!isset($url_templates[$top_btn])) {
             $error = 'Top selecionado inválido.';
+        } elseif (postbackTopSupported($top_btn) && (!ctype_digit($top_id) || (int)$top_id <= 0)) {
+            $error = 'Este top exige o ID numérico do servidor.';
         } elseif ($top_btn === 'hopzoneu.php' && (!ctype_digit($top_id) || (int)$top_id <= 0 || $token === '')) {
             $error = 'Hopzone.eu: informe o ID numérico do servidor e sua API Key.';
         } elseif (!preg_match('/^[a-zA-Z0-9._\-]+$/', $top_id)) {
@@ -80,6 +85,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $token   = substr(trim($_POST['top_token'] ?? ''), 0, 500);
 
         $url_templates = array(
+            'mmtop200.php' => 'https://mmtop200.com/vote/{SERVER_ID}',
+            'gamingtop100.php' => 'https://www.gamingtop100.net/in-{SERVER_ID}',
+            'top100arena.php' => 'https://www.top100arena.com/listing/{SERVER_ID}/vote',
             'hopzoneu.php' => 'https://hopzone.eu/vote/{SERVER_ID}',
             'l2jbrasil.php'   => 'https://top.l2jbrasil.com/index.php?a=in&u={SERVER_ID}',
             '4top.php'        => 'https://top.4teambr.com/index.php?a=in&u={SERVER_ID}',
@@ -98,6 +106,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (!$current || !isset($url_templates[$current['top_btn']])) {
                 $error = 'Top não encontrado ou inválido.';
+            } elseif (postbackTopSupported($current['top_btn']) && (!ctype_digit($top_id) || (int)$top_id <= 0)) {
+                $error = 'Este top exige o ID numérico do servidor.';
             } elseif ($current['top_btn'] === 'hopzoneu.php' && (!ctype_digit($top_id) || (int)$top_id <= 0 || ($token === '' && empty($current['token'])))) {
                 $error = 'Hopzone.eu: informe o ID numérico do servidor e sua API Key.';
             } else {
@@ -324,6 +334,7 @@ renderNav();
           <input type="text" name="top_token" id="topTokenInput" class="form-control"
             data-i18n-placeholder="admin_token_ph"
             placeholder="Cole o token gerado no painel do site de votação">
+          <small id="mmTopTokenHint" style="display:none;color:var(--text-dim)">No MMTop200, copie a API Key na página Vote Checker. Exemplo fictício (não válido): <code>0123456789abcdef0123456789abcdef</code>.</small>
         </div>
 
         <div class="alert alert-info" style="font-size:.75rem;margin-bottom:1rem" data-i18n="admin_url_auto_info">
@@ -348,6 +359,16 @@ renderNav();
             <div class="top-admin-identity">
               <strong><?= e($top['name']) ?></strong>
               <span><?= e($top['top_btn'] ?: 'Top externo') ?></span>
+              <?php if (postbackTopSupported($top['top_btn'])): ?>
+              <small>Para confirmar pela conta, configure o postback no painel do top com a URL HTTPS completa deste link:</small>
+              <a href="voteapi.php<?= $top['top_btn'] === 'top100arena.php' ? '?postback=' : '' ?>">URL de postback</a>
+              <?php if ($top['top_btn'] === 'gamingtop100.php'): ?>
+              <small>Na <a href="https://www.gamingtop100.net/edit" target="_blank" rel="noopener noreferrer">página de edição do GamingTop100</a>, cole no campo <strong>Postback URL</strong> o link abaixo: <code class="gaming-postback-url-text"></code>. O endereço do seu VoteSystem é detectado automaticamente. Esse postback permite confirmar o voto pela conta.</small>
+              <input type="text" class="form-control gaming-postback-url" readonly
+                aria-label="URL de postback do GamingTop100" onclick="this.select()">
+              <?php endif; ?>
+              <small><?= $top['top_btn'] === 'mmtop200.php' ? 'O campo Token recebe a API Key da página Vote Checker do MMTop200. Use o validador oficial sem senha adicional de postback.' : 'A referência numérica do jogador é gerada automaticamente.' ?></small>
+              <?php endif; ?>
             </div>
             <span class="badge <?= $top['enabled'] ? 'badge-success' : 'badge-danger' ?>"
               data-i18n="<?= $top['enabled'] ? 'badge_active' : 'badge_inactive' ?>">
@@ -417,6 +438,9 @@ renderNav();
                   <label class="form-label">Token / API Key</label>
                   <input type="password" name="top_token" class="form-control"
                     placeholder="Deixe vazio para manter o atual" autocomplete="new-password">
+                  <?php if ($top['top_btn'] === 'mmtop200.php'): ?>
+                  <small style="color:var(--text-dim)">Copie a API Key na página Vote Checker do MMTop200. Exemplo fictício (não válido): <code>0123456789abcdef0123456789abcdef</code>.</small>
+                  <?php endif; ?>
                 </div>
               </div>
 
@@ -687,6 +711,7 @@ function onTopChange(sel) {
     var btnFile    = opt.value || '';
 
     document.getElementById('tokenGroup').style.display = needsToken ? '' : 'none';
+    document.getElementById('mmTopTokenHint').style.display = btnFile === 'mmtop200.php' ? '' : 'none';
     if (!needsToken) document.getElementById('topTokenInput').value = '';
 
     var nameInput    = document.getElementById('topNameInput');
@@ -707,6 +732,14 @@ function onTopChange(sel) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    var postbackUrl = new URL('voteapi.php', window.location.href);
+    postbackUrl.protocol = 'https:';
+    document.querySelectorAll('.gaming-postback-url').forEach(function(input) {
+        input.value = postbackUrl.href;
+    });
+    document.querySelectorAll('.gaming-postback-url-text').forEach(function(label) {
+        label.textContent = postbackUrl.href;
+    });
     var opts = document.querySelectorAll('#topBtnSelect option[data-name]');
     for (var i = 0; i < opts.length; i++) {
         var n = opts[i].getAttribute('data-name');

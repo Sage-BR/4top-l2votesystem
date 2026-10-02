@@ -63,7 +63,7 @@ if (!$registeredTop) {
 }
 
 // Registra o clique — registerVote já faz check transacional
-if ($registeredTop['top_btn'] === 'hopzoneu.php') {
+if ($registeredTop['top_btn'] === 'hopzoneu.php' || postbackTopSupported($registeredTop['top_btn'])) {
     http_response_code(409);
     echo json_encode(array('ok' => false, 'msg' => 'awaiting_vote_confirmation'));
     exit;

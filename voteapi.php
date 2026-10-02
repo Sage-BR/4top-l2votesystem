@@ -10,6 +10,18 @@
 //   e converte para o fuso local apenas na exibição — nunca para lógica.
 // =============================================================================
 
+// Callback compartilhado: os provedores enviam uid, user_id ou postback.
+if (!isset($_GET['action']) && !isset($_GET['top'])
+    && (isset($_POST['uid']) || isset($_GET['uid']) || isset($_POST['user_id']) || isset($_GET['user_id']) || isset($_POST['postback']) || isset($_GET['postback']))) {
+    if (!file_exists(__DIR__ . '/.installed')) { http_response_code(404); exit; }
+    require_once __DIR__ . '/config.php';
+    require_once __DIR__ . '/includes/db.php';
+    require_once __DIR__ . '/includes/core.php';
+    require_once __DIR__ . '/includes/helpers.php';
+    handleVotePostback();
+    exit;
+}
+
 // Ação de navegador: usa a conta autenticada, nunca um login informado na URL.
 if (isset($_GET['action']) && is_string($_GET['action']) && $_GET['action'] === 'hopzone_vote') {
     if (!file_exists(__DIR__ . '/.installed')) { http_response_code(404); exit; }
@@ -133,6 +145,9 @@ if ($action === 'list_tops') {
     echo json_encode(array(
         'error' => false,
         'tops'  => array(
+            'mmtop200.php' => array('name' => 'MMTop200', 'site' => 'mmtop200.com', 'token' => true),
+            'gamingtop100.php' => array('name' => 'GamingTop100', 'site' => 'www.gamingtop100.net', 'token' => false),
+            'top100arena.php' => array('name' => 'Top100Arena', 'site' => 'www.top100arena.com', 'token' => false),
             'hopzoneu.php' => array('name' => 'Hopzone.eu', 'site' => 'hopzone.eu', 'token' => true),
             '4top.php'      => array('name' => '4TOP',      'site' => 'top.4teambr.com',   'token' => true),
             'l2jbrasil.php' => array('name' => 'L2JBrasil', 'site' => 'top.l2jbrasil.com', 'token' => true),
@@ -226,6 +241,9 @@ function buildHandler($top, $token, $serverId) {
     $top = preg_replace('/\.php$/i', '', $top);
     
 static $map = array(
+        'mmtop200' => 'MMTop200Top',
+        'gamingtop100' => 'GamingTop100Top',
+        'top100arena' => 'Top100ArenaTop',
         'l2jbrasil'   => 'L2JBrasilTop',
         '4top'        => 'FourTopTop',
         'l2toporg'    => 'L2TopOrgTop',
@@ -818,4 +836,49 @@ class L2NetworkTop extends TopBase {
 
         return $err ? false : $body;
     }
+}
+
+// Checkers por IP: a identificação por conta é feita antes pelo postback local.
+abstract class IpCheckerTop extends TopBase {
+    abstract protected function checkerUrl($ip);
+    protected function log($message) {
+        if ($this->token !== '') $message = str_replace($this->token, '[redacted]', $message);
+        parent::log($message);
+    }
+    public function checkVote($ip, $login = '') {
+        if (!filter_var($ip, FILTER_VALIDATE_IP)) return TopResult::notVoted('Aguardando postback por login; IP indisponível');
+        if (!ctype_digit($this->serverId) || (int)$this->serverId <= 0) return TopResult::fail($this->name . ': ID numérico obrigatório');
+        if ($this instanceof MMTop200Top && trim($this->token) === '') return TopResult::notVoted('Aguardando postback; Vote Checker Token ausente');
+        $body = $this->httpGet($this->checkerUrl($ip));
+        if ($body === false) return TopResult::fail($this->name . ': checker indisponível');
+        $answer = strtolower(trim((string)$body));
+        if ($this instanceof Top100ArenaTop) {
+            $data = json_decode($body, true);
+            if (!is_array($data) || !array_key_exists('voted', $data) || !in_array($data['voted'], array(true, false, 0, 1), true)) {
+                return TopResult::fail($this->name . ': resposta inválida; configure o postback');
+            }
+            $voted = $data['voted'] === true || $data['voted'] === 1;
+        } else {
+            $positive = $this instanceof MMTop200Top ? array('true', '1', 'yes', 'on') : array('true', '1');
+            $negative = $this instanceof MMTop200Top ? array('false', '0', 'no', 'off') : array('false', '0');
+            if (!in_array($answer, array_merge($positive, $negative), true)) return TopResult::fail($this->name . ': resposta inválida do checker');
+            $voted = in_array($answer, $positive, true);
+        }
+        $this->log($voted ? 'VOTO CONFIRMADO POR IP CHECKER' : 'VOTO NÃO ENCONTRADO POR IP; aguardando postback');
+        // O checker só informa presença na janela de 12h, não o horário original.
+        return $voted ? TopResult::ok(time()) : TopResult::notVoted('Aguardando voto/postback');
+    }
+}
+class MMTop200Top extends IpCheckerTop {
+    protected $name = 'MMTop200';
+    protected function checkerUrl($ip) { return 'https://mmtop200.com/voted/' . rawurlencode($this->token) . '/' . rawurlencode($ip) . '/'; }
+    public function getVoteUrl($login = '') { return 'https://mmtop200.com/vote/' . rawurlencode($this->serverId) . '/' . rawurlencode($login); }
+}
+class GamingTop100Top extends IpCheckerTop {
+    protected $name = 'GamingTop100';
+    protected function checkerUrl($ip) { return 'https://www.gamingtop100.net/ip_check/' . rawurlencode($this->serverId) . '/' . rawurlencode($ip); }
+}
+class Top100ArenaTop extends IpCheckerTop {
+    protected $name = 'Top100Arena';
+    protected function checkerUrl($ip) { return 'https://www.top100arena.com/check_ip/' . rawurlencode($this->serverId) . '?ip=' . rawurlencode($ip); }
 }

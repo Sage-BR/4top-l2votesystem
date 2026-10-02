@@ -19,10 +19,14 @@
 // API local - voteapi.php no mesmo servidor
 define('VOTEAPI_LOCAL', 'voteapi.php');
 require_once __DIR__ . '/hopzoneeu.php';
+require_once __DIR__ . '/postbacktops.php';
 
 // Mapa arquivo → identificador aceito pelo CDN
 function getTopKey($btn) {
     static $map = array(
+        'mmtop200.php' => 'mmtop200',
+        'gamingtop100.php' => 'gamingtop100',
+        'top100arena.php' => 'top100arena',
         'l2jbrasil.php'   => 'l2jbrasil',
         '4top.php'        => '4top',
         'l2toporg.php'    => 'l2toporg',
@@ -38,6 +42,7 @@ function getTopKey($btn) {
 function loadTopApi($top) {
     $btn    = basename((string)(isset($top['top_btn']) ? $top['top_btn'] : ''));
     if ($btn === 'hopzoneu.php') return new HopzoneEuApi($top);
+    if (postbackTopSupported($btn)) return new PostbackTopApi($top);
     $topKey = getTopKey($btn);
     if (!$topKey) return null;
 
@@ -176,6 +181,7 @@ function getTopVoteUrl($top, $login = '') {
     $btn      = !empty($top['top_btn']) ? basename($top['top_btn']) : '';
     $serverId = (string)(isset($top['top_id']) ? $top['top_id'] : '');
     $login    = trim((string)$login);
+    if (postbackTopSupported($btn)) return postbackTopVoteUrl($top, $login);
 
     switch ($btn) {
         case 'hopzoneu.php':
@@ -216,6 +222,12 @@ function ensureVoteSchema() {
     try {
         $db = getDB();
         $tables = array(
+            '4top_postback_refs' => "CREATE TABLE IF NOT EXISTS `4top_postback_refs` (
+                `id` INT NOT NULL AUTO_INCREMENT, `top_id` INT NOT NULL,
+                `login` VARCHAR(45) NOT NULL, `voter_ip` VARCHAR(45) NOT NULL,
+                `postback_at` DATETIME DEFAULT NULL,
+                PRIMARY KEY (`id`), UNIQUE KEY `idx_top_login` (`top_id`, `login`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
             '4top_hopzone_votes' => "CREATE TABLE IF NOT EXISTS `4top_hopzone_votes` (
                 `top_id` INT NOT NULL, `login` VARCHAR(45) NOT NULL,
                 `vote_id` VARCHAR(19) NOT NULL, `vote_url` VARCHAR(500) NOT NULL,
@@ -278,6 +290,11 @@ function ensureVoteSchema() {
             }
         }
 
+        $postbackColumn = $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '4top_postback_refs' AND COLUMN_NAME = 'postback_at'");
+        if ((int)$postbackColumn->fetchColumn() === 0) {
+            $db->exec('ALTER TABLE 4top_postback_refs ADD COLUMN postback_at DATETIME DEFAULT NULL');
+        }
+
         // Migration: adiciona coluna hwid em 4top_reward_claims se não existir
         $chk = $db->prepare(
             "SELECT COUNT(*) FROM information_schema.COLUMNS
@@ -300,8 +317,10 @@ function ensureVoteSchema() {
         if ($stmt->fetchColumn() === false) {
             setSetting('anticheat_enabled', '1');
         }
+        return true;
     } catch (Throwable $e) {
         error_log('[VoteSystem] ensureVoteSchema error: ' . $e->getMessage());
+        return false;
     }
 }
 
@@ -365,6 +384,9 @@ function logAnticheatDetection(array $data) {
 
 function getAvailableTops() {
     return array(
+        'mmtop200.php' => array('name' => 'MMTop200', 'site' => 'mmtop200.com', 'token' => true, 'featured' => false, 'register_url' => 'https://mmtop200.com/'),
+        'gamingtop100.php' => array('name' => 'GamingTop100', 'site' => 'www.gamingtop100.net', 'token' => false, 'featured' => false, 'register_url' => 'https://www.gamingtop100.net/'),
+        'top100arena.php' => array('name' => 'Top100Arena', 'site' => 'www.top100arena.com', 'token' => false, 'featured' => false, 'register_url' => 'https://www.top100arena.com/'),
         'hopzoneu.php' => array('name' => 'Hopzone.eu', 'site' => 'hopzone.eu', 'token' => true, 'featured' => false, 'register_url' => 'https://hopzone.eu/'),
         '4top.php'        => array('name' => '4TOP ★',      'site' => 'top.4teambr.com',   'token' => true,  'featured' => true,  'register_url' => 'https://top.4teambr.com/addserver.php'),
         'l2jbrasil.php'   => array('name' => 'L2JBrasil ★', 'site' => 'top.l2jbrasil.com', 'token' => true,  'featured' => true,  'register_url' => 'https://top.l2jbrasil.com/index.php?a=add'),
@@ -562,7 +584,7 @@ function checkVotes($login, $ip, $hwid = '') {
 
         // 1. Tenta o Check Local por login — evita depender de IP para confirmar voto
         $localVote = getLastVote($login, $t['id']);
-        if ($localVote && $localVote['seconds_ago'] < 43200) {
+        if (!postbackTopSupported($t['top_btn']) && $localVote && $localVote['seconds_ago'] < 43200) {
             $voted = true;
             $voteTime = (new DateTime($localVote['voted_at'], new DateTimeZone('UTC')))->getTimestamp();
         }
