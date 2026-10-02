@@ -57,16 +57,21 @@ function handleVotePostback() {
     $fields = array_merge($_GET, $_POST);
     $key = isset($fields['uid']) ? 'uid' : (isset($fields['user_id']) ? 'user_id' : 'postback');
     $provider = $key === 'uid' ? 'mmtop200.php' : ($key === 'user_id' ? 'gamingtop100.php' : 'top100arena.php');
+    $logProvider = basename($provider, '.php');
+    postbackTopLog($logProvider, 'POSTBACK RECEBIDO: método=' . $_SERVER['REQUEST_METHOD']);
     $ref = isset($fields[$key]) && is_string($fields[$key]) ? trim($fields[$key]) : '';
     if ($ref === '' || strlen($ref) > 45 || ($key !== 'uid' && (!ctype_digit($ref) || (int)$ref <= 0))) {
+        postbackTopLog($logProvider, 'POSTBACK REJEITADO HTTP 400: referência ausente ou inválida');
         http_response_code(400); echo json_encode(array('ok' => false)); return;
     }
     // clientIp só usa headers quando o remetente é um proxy confiável do projeto.
     if (!postbackTopOriginAllowed($provider, clientIp())) {
+        postbackTopLog($logProvider, 'POSTBACK REJEITADO HTTP 403: origem não autorizada; conferir DNS do provedor e proxies confiáveis');
         http_response_code(403); echo json_encode(array('ok' => false)); return;
     }
     if ($key === 'uid' && (!isset($fields['vote_counted']) || !is_string($fields['vote_counted'])
         || !in_array(strtolower($fields['vote_counted']), array('1', 'true', 'yes', 'on', 'y'), true))) {
+        postbackTopLog($logProvider, 'POSTBACK IGNORADO HTTP 200: vote_counted ausente ou voto não contabilizado');
         echo json_encode(array('ok' => true, 'ignored' => 'not_counted')); return;
     }
     $db = getDB();
@@ -77,12 +82,18 @@ function handleVotePostback() {
         $stmt = $db->prepare("SELECT r.*, t.name FROM 4top_postback_refs r JOIN 4top_tops t ON t.id = r.top_id WHERE $column = ? AND t.top_btn = ? AND t.enabled = 1 LIMIT 1");
         $stmt->execute(array($ref, $provider));
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$row) { http_response_code(404); echo json_encode(array('ok' => false)); return; }
+        if (!$row) {
+            postbackTopLog($logProvider, 'POSTBACK REJEITADO HTTP 404: referência não vinculada a um top ativo; confira o cadastro e o link de voto');
+            http_response_code(404); echo json_encode(array('ok' => false)); return;
+        }
         $lock = 'vote_pb_' . $row['top_id'] . '_' . $row['id'];
         $stmt = $db->prepare('SELECT GET_LOCK(?, 5)');
         $stmt->execute(array($lock));
         $locked = (int)$stmt->fetchColumn() === 1;
-        if (!$locked) { http_response_code(503); echo json_encode(array('ok' => false)); return; }
+        if (!$locked) {
+            postbackTopLog($logProvider, 'POSTBACK REJEITADO HTTP 503: não foi possível obter bloqueio de registro');
+            http_response_code(503); echo json_encode(array('ok' => false)); return;
+        }
         $voterIp = isset($fields['ip_addr']) && is_string($fields['ip_addr']) && filter_var($fields['ip_addr'], FILTER_VALIDATE_IP)
             ? $fields['ip_addr'] : $row['voter_ip'];
         $result = registerVote($row['login'], (int)$row['top_id'], $voterIp);
