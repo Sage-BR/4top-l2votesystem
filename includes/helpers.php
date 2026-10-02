@@ -593,15 +593,14 @@ function claimReward($login, $objId, $hwid = null) {
 
     // Valida que checkVotes() foi chamado antes
     if (empty($_SESSION['vs_confirmed_votes'])) {
-        return array('status' => 'error', 'msg' => '❌ Verificação de votos expirada. Clique em Verificar Votos novamente.');
+        return array('status' => 'error', 'code' => 'verification_required', 'msg' => '❌ Verificação de votos expirada. Clique em Verificar Votos novamente.');
     }
 
     $confirmed = $_SESSION['vs_confirmed_votes'];
     if (!isset($_SESSION['vs_login']) || $_SESSION['vs_login'] !== $login) {
         return array('status' => 'error', 'msg' => 'Sessão inválida. Faça login novamente.');
     }
-    // Consome a autorização antes de liberar a sessão: outro pedido precisa verificar de novo.
-    unset($_SESSION['vs_confirmed_votes'], $_SESSION['vs_confirmed_hwid']);
+    // Preserva a autorização em caso de falha; as travas e o cooldown impedem entrega duplicada.
     session_write_close();
 
     // Valida que o personagem pertence à conta
@@ -680,6 +679,14 @@ function claimReward($login, $objId, $hwid = null) {
         }
 
         $db->commit();
+
+        startSession();
+        if (isset($_SESSION['vs_login'], $_SESSION['vs_confirmed_votes'])
+            && $_SESSION['vs_login'] === $login
+            && $_SESSION['vs_confirmed_votes'] === $confirmed) {
+            unset($_SESSION['vs_confirmed_votes'], $_SESSION['vs_confirmed_hwid']);
+        }
+        session_write_close();
 
         return array('status' => 'ok', 'msg' => '🎁 Recompensa entregue com sucesso!');
 

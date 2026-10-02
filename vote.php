@@ -434,6 +434,7 @@ function doClaimReward(btn) {
     if (btn.disabled) return;
     var objId = document.getElementById('charSelect').value;
     if (!objId) { showToast(_t('msg_select_char'), 'error'); return; }
+    btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = _t('msg_delivering');
     
     // Coleta HWID/Fingerprint antes de enviar
     getFingerprint().then(function(hwid) {
@@ -459,41 +460,21 @@ function doClaimReward(btn) {
             } else {
                 showToast(_tm(res) || _t('msg_reward_error'), 'error');
                 btn.disabled = false; btn.style.opacity = '1'; btn.textContent = _t('btn_claim_reward');
+                if (res.code === 'verification_required') {
+                    document.getElementById('stepClaim').style.display = 'none';
+                    document.getElementById('stepCheck').style.display = 'block';
+                    var checkBtn = document.getElementById('checkBtn');
+                    checkBtn.disabled = false; checkBtn.style.opacity = '1'; checkBtn.textContent = _t('btn_check_votes');
+                    _checkLock = false;
+                }
             }
         }, function() {
             showToast(_t('msg_connect_error'), 'error');
             btn.disabled = false; btn.style.opacity = '1'; btn.textContent = _t('btn_claim_reward');
         });
-    }).catch(function(err) {
-        // Se falhar ao coletar HWID, prossegue mesmo assim
-        console.error('HWID collection error:', err);
-        btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = _t('msg_delivering');
-        var fd = new FormData();
-        fd.append('action', 'claim_reward');
-        fd.append('obj_id', objId);
-        fd.append('csrf_token', document.getElementById('claimCsrfToken').value);
-        fd.append('hwid', '');
-        ajax('vote.php', fd, function(res) {
-            if (res.status === 'ok') {
-                showToast(_tm(res) || _t('msg_reward_ok'), 'ok');
-                document.getElementById('claimSection').innerHTML =
-                '<div style="background:linear-gradient(135deg,rgba(26,100,50,.2),rgba(26,100,50,.05));' +
-                'border:1px solid rgba(45,138,90,.4);border-radius:10px;padding:1.5rem 2rem;' +
-                'display:inline-block;max-width:480px;width:100%;text-align:center">' +
-                '<div style="font-size:2rem;margin-bottom:.5rem">✅</div>' +
-                '<div style="font-size:1rem;font-weight:700;color:#4ade80;margin-bottom:.3rem">' + _t('reward_delivered_title') + '</div>' +
-                '<div style="font-size:.8rem;color:var(--text-dim)">' + _t('reward_delivered_sub') + '</div></div>';
-            } else if (res.status === 'cooldown') {
-                showToast(_tm(res) || _t('msg_cooldown'), 'cooldown');
-                btn.disabled = false; btn.style.opacity = '1'; btn.textContent = _t('btn_claim_reward');
-            } else {
-                showToast(_tm(res) || _t('msg_reward_error'), 'error');
-                btn.disabled = false; btn.style.opacity = '1'; btn.textContent = _t('btn_claim_reward');
-            }
-        }, function() {
-            showToast(_t('msg_connect_error'), 'error');
-            btn.disabled = false; btn.style.opacity = '1'; btn.textContent = _t('btn_claim_reward');
-        });
+    }).catch(function() {
+        showToast(_t('msg_connect_error'), 'error');
+        btn.disabled = false; btn.style.opacity = '1'; btn.textContent = _t('btn_claim_reward');
     });
 }
 
