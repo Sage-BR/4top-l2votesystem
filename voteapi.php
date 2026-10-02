@@ -217,10 +217,17 @@ final class TopResult {
 // =============================================================================
 abstract class TopBase {
 
+    // UA fixo e identificavel: permite que cada top allowliste este cliente.
+    const USER_AGENT = '4top-l2votesystem/1.0 (+https://github.com/Sage-BR/4top-l2votesystem)';
+
     protected $token    = '';
     protected $serverId = '';
     protected $timeout  = 15;
     protected $name     = '';
+
+    protected $userAgent = self::USER_AGENT;
+
+    private $lastHeaders = array();
 
     // Fuso horário padrão das APIs (sobrescrever nas subclasses se diferente)
     // A grande maioria dos tops internacionais opera em UTC.
@@ -286,7 +293,8 @@ abstract class TopBase {
     }
 
     private function _curl($url, $extra = array()) {
-        $userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+        $userAgent = $this->userAgent;
+        $this->lastHeaders = array();
         if (!function_exists('curl_init')) {
             $headers = isset($extra['headers']) ? $extra['headers'] : array();
             $headers[] = 'User-Agent: ' . $userAgent;
@@ -318,6 +326,7 @@ abstract class TopBase {
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_USERAGENT      => $userAgent,
+            CURLOPT_HEADERFUNCTION => array($this, 'captureHeader'),
         ) + $extra);
 
         $body = curl_exec($ch);
@@ -332,11 +341,61 @@ abstract class TopBase {
 
         if ($code !== 200 || stripos($body, '<!DOCTYPE') !== false || stripos($body, '<html') !== false) {
             $snippet = substr(trim(strip_tags((string)$body)), 0, 150);
-            $this->log("resposta inválida HTTP $code | url: $url | body: " . ($snippet ?: 'HTML/vazio'));
+            $edge    = $this->describeEdgeBlock($code, (string)$body);
+            if ($edge !== '') {
+                $this->log("BLOQUEADO NO EDGE (nao e falha da API) HTTP $code | $edge | url: $url");
+            } else {
+                $this->log("resposta inválida HTTP $code | url: $url | body: " . ($snippet ?: 'HTML/vazio'));
+            }
             return false;
         }
 
         return $body;
+    }
+
+    /** Callback do cURL: guarda os headers da resposta para diagnostico. */
+    protected function captureHeader($ch, $header) {
+        $len = strlen($header);
+        $pos = strpos($header, ':');
+        if ($pos !== false) {
+            $this->lastHeaders[strtolower(trim(substr($header, 0, $pos)))] = trim(substr($header, $pos + 1));
+        }
+        return $len;
+    }
+
+    protected function responseHeader($name) {
+        $name = strtolower($name);
+        return isset($this->lastHeaders[$name]) ? $this->lastHeaders[$name] : '';
+    }
+
+    /** Descreve um bloqueio de CDN/WAF (com CF-Ray), ou '' se nao for do edge. */
+    protected function describeEdgeBlock($code, $body) {
+        $server    = strtolower($this->responseHeader('server'));
+        $mitigated = $this->responseHeader('cf-mitigated');
+        $ray       = $this->responseHeader('cf-ray');
+        $isCf      = ($server === 'cloudflare' || $mitigated !== '' || $ray !== '');
+
+        $reason = '';
+        if (stripos($body, 'Just a moment') !== false || stripos($body, 'challenge-platform') !== false) {
+            $reason = 'Cloudflare Managed Challenge — este servidor foi classificado como bot';
+        } elseif (preg_match('/error code: (10\d\d)/i', $body, $m)) {
+            $map = array(
+                '1010' => 'Browser Integrity Check — User-Agent recusado',
+                '1020' => 'Firewall/WAF rule — acesso negado para este IP ou pais',
+            );
+            $reason = 'Cloudflare error ' . $m[1]
+                    . (isset($map[$m[1]]) ? ' (' . $map[$m[1]] . ')' : '');
+        } elseif ($mitigated !== '') {
+            $reason = 'Cloudflare cf-mitigated: ' . $mitigated;
+        } elseif ($isCf && ($code === 403 || $code === 503) && stripos($body, '<html') !== false) {
+            $reason = 'Cloudflare retornou HTTP ' . $code . ' com pagina HTML (bloqueio ou desafio no edge)';
+        }
+
+        if ($reason === '') return '';
+        if ($ray !== '') {
+            $reason .= ' | CF-Ray: ' . $ray . ' (informe este ID ao admin do topsite para localizar a regra)';
+        }
+        return $reason;
     }
 
     protected function decodeJson($body) {
@@ -460,16 +519,19 @@ class L2JBrasilTop extends TopBase {
         // Prioridade: login (player_id=md5) — CGNAT-safe. IP como secundário (log/auditoria)
         $identifier = !empty($login) ? md5($login) : '';
 
-        $url = self::API_URL . '?' . http_build_query([
-            'player_id' => $identifier,
-            'username'  => $this->serverId,
-            'type'      => 'json',
-            'hours'     => '12',
-        ]);
+        $query = [
+            'username' => $this->serverId,
+            'type'     => 'json',
+            'hours'    => '12',
+        ];
+        if ($identifier !== '') {
+            $query['player_id'] = $identifier;
+        }
+        $url = self::API_URL . '?' . http_build_query($query);
 
-        $body = $this->httpGetSimple($url);
+        $body = $this->httpGet($url, array('Accept: application/json'));
         if (!$body) {
-            $this->log("ERRO: L2JBrasil inacessível | url: $url");
+            $this->log("ERRO: sem resposta utilizável do L2JBrasil (ver linha anterior para a causa) | url: $url");
             return TopResult::fail('L2JBrasil inacessível');
         }
 
@@ -509,7 +571,7 @@ class L2JBrasilTop extends TopBase {
                 'type'      => 'json',
                 'hours'     => '12',
             ]);
-            $bodyIp = $this->httpGetSimple($urlIp);
+            $bodyIp = $this->httpGet($urlIp, array('Accept: application/json'));
             if ($bodyIp) {
                 $dataIp = $this->decodeJson($bodyIp);
                 if ($dataIp && isset($dataIp['vote'])) {
@@ -652,7 +714,7 @@ class L2NetworkTop extends TopBase {
     }
 
     private function httpPost($postData) {
-        $userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+        $userAgent = $this->userAgent;
         if (!function_exists('curl_init')) {
             $ctx = stream_context_create(array(
                 'http' => array(
