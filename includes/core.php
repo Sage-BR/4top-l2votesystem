@@ -70,7 +70,7 @@ function gameGetChars($login) {
     $stmt = $db->prepare(
         "SELECT `{$col}` AS obj_Id, char_name FROM characters
          WHERE account_name = ?
-           AND deletetime = 0
+           AND COALESCE(deletetime, 0) = 0
          ORDER BY lastAccess DESC"
     );
     $stmt->execute(array($login));
@@ -82,7 +82,7 @@ function gameCharBelongsTo($login, $objId) {
     $db   = getDB();
     $stmt = $db->prepare(
         "SELECT `{$col}` FROM characters
-         WHERE account_name = ? AND `{$col}` = ? AND deletetime = 0
+         WHERE account_name = ? AND `{$col}` = ? AND COALESCE(deletetime, 0) = 0
          LIMIT 1"
     );
     $stmt->execute(array($login, (int)$objId));
@@ -96,6 +96,8 @@ function gameCharBelongsTo($login, $objId) {
 // Schema por projeto:
 //   aCis / L2JOrion  → owner_id, object_id, item_id, count, enchant_level,
 //                       loc, loc_data, custom_type1, custom_type2, mana_left
+//                       (aCis atual também tem time DEFAULT 0; omitido no INSERT
+//                       para continuar compatível com schemas aCis anteriores)
 //   L2JMobius /
 //   L2JSunrise       → idem + time
 //   L2JLisvus        → owner_id, object_id, item_id, count, enchant_level,
