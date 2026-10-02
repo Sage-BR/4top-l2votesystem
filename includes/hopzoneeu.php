@@ -13,7 +13,7 @@ class HopzoneEuApi {
     }
 
     public function getVoteUrl($login = '') {
-        return 'hopzone_vote.php?top_id=' . (int)$this->top['id'] . '&csrf=' . rawurlencode(csrfToken());
+        return 'voteapi.php?action=hopzone_vote&top_id=' . (int)$this->top['id'] . '&csrf=' . rawurlencode(csrfToken());
     }
 
     protected function request($fields) {

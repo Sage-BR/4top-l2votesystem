@@ -27,13 +27,13 @@ O VoteSystem é um painel web que permite aos jogadores do seu servidor votarem 
 ### Hopzone.eu
 
 Cadastre o ID numérico do servidor e a API Key no admin. Ao abrir o botão de voto,
-`hopzone_vote.php` gera uma URL pela API e salva o `vote_id` associado ao login.
+A ação `hopzone_vote` em `voteapi.php` gera uma URL pela API e salva o `vote_id` associado ao login.
 Reaberturas reutilizam o voto pendente por até 12 horas ou o voto concluído ainda válido.
 A verificação exige `status=completed`, servidor/identificador correspondentes e voto
 com menos de 12 horas. O IP só é consultado quando não existe vínculo salvo para a conta;
 um voto encontrado por IP é vinculado à conta e não pode confirmar outra conta.
 Cliques, votos pendentes e falhas da API não confirmam votos nem entregam recompensas.
-Publique também `includes/hopzoneeu.php`, `hopzone_vote.php` e `assets/buttons/hopzoneu.svg`.
+Publique também `includes/hopzoneeu.php` e `assets/buttons/hopzoneu.png`.
 A tabela `4top_hopzone_votes` é criada automaticamente na atualização do schema.
 Contrato: https://hopzone.eu/docs.html/
 

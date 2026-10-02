@@ -91,7 +91,7 @@ $api->answers = array(array('vote_id' => 999, 'url' => 'https://other.example/vo
 try { $api->prepareVote('player-c'); throw new LogicException('unsafe redirect accepted'); }
 catch (RuntimeException $e) { checkHopzone(true, 'reject foreign redirect URL'); }
 checkHopzone($GLOBALS['hopzoneDb']->released === 3, 'locks released after success and failure');
-checkHopzone($api->getVoteUrl('player-a') === 'hopzone_vote.php?top_id=2&csrf=fixture-csrf', 'local URL omits API key');
+checkHopzone($api->getVoteUrl('player-a') === 'voteapi.php?action=hopzone_vote&top_id=2&csrf=fixture-csrf', 'local URL omits API key');
 checkHopzone((bool)preg_grep('/VOTO CONFIRMADO/', $api->logs), 'confirmed vote logged');
 checkHopzone((bool)preg_grep('/status=pending/', $api->logs), 'pending vote logged');
 checkHopzone(strpos(implode(' ', $api->logs), 'fixture-key') === false, 'API key absent from logs');

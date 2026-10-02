@@ -10,6 +10,37 @@
 //   e converte para o fuso local apenas na exibição — nunca para lógica.
 // =============================================================================
 
+// Ação de navegador: usa a conta autenticada, nunca um login informado na URL.
+if (isset($_GET['action']) && is_string($_GET['action']) && $_GET['action'] === 'hopzone_vote') {
+    if (!file_exists(__DIR__ . '/.installed')) { http_response_code(404); exit; }
+    require_once __DIR__ . '/config.php';
+    require_once __DIR__ . '/includes/bootstrap.php';
+    requireLogin();
+    header('Cache-Control: no-store');
+    header('Referrer-Policy: no-referrer');
+    $hopzoneCsrf = isset($_GET['csrf']) && is_string($_GET['csrf']) ? $_GET['csrf'] : '';
+    if ($_SERVER['REQUEST_METHOD'] !== 'GET' || !verifyCsrf($hopzoneCsrf)) { http_response_code(403); exit; }
+    $hopzoneId = filter_var($_GET['top_id'] ?? '', FILTER_VALIDATE_INT, array('options' => array('min_range' => 1)));
+    if ($hopzoneId === false) { http_response_code(400); exit; }
+    $hopzoneStmt = getDB()->prepare("SELECT * FROM 4top_tops WHERE id = ? AND enabled = 1 AND top_btn = 'hopzoneu.php' LIMIT 1");
+    $hopzoneStmt->execute(array($hopzoneId));
+    $hopzoneTop = $hopzoneStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$hopzoneTop) { http_response_code(404); exit; }
+    $hopzoneLogin = currentLogin();
+    session_write_close();
+    try {
+        $hopzoneApi = new HopzoneEuApi($hopzoneTop);
+        $hopzoneUrl = $hopzoneApi->prepareVote($hopzoneLogin);
+        header('Location: ' . $hopzoneUrl, true, 302);
+    } catch (Throwable $e) {
+        error_log('[Hopzone.eu] Falha ao preparar link de votação');
+        http_response_code(502);
+        header('Content-Type: text/plain; charset=UTF-8');
+        echo 'Não foi possível abrir a votação. Volte ao VoteSystem e tente novamente.';
+    }
+    exit;
+}
+
 header('Content-Type: application/json; charset=utf-8');
 
 // CORS: reflete a própria origem (self-hosted — cada dono usa seu domínio)
