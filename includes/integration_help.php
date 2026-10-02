@@ -24,7 +24,8 @@ function renderIntegrationHelp($top, $dialogId) {
         <p>Informe o ID do servidor e o token da API do painel do L2Top.org. O link inclui o login; a API consulta esse mesmo login usando o token.</p>
         <p>É necessário um voto confirmado com horário dentro da janela de 12 horas. Não precisa configurar postback.</p>
         <?php elseif ($button === 'l2network.php'): ?>
-        <p>Informe o username do servidor no ranking e sua API Key. O link envia o login em <code>id</code>; a consulta POST envia <code>apiKey</code>, <code>type=2</code> e <code>player=login</code>.</p>
+        <p>No campo ID do Servidor no Top, informe exatamente o valor de <code>u</code> do link oficial de votação fornecido pelo L2Network. Esse valor é o username do proprietário do cadastro e pode ser diferente do nome exibido do servidor e do ID numérico da página de detalhes.</p>
+        <p>Informe também sua API Key. O link envia o login do jogador em <code>id</code>; a consulta POST envia <code>apiKey</code>, <code>type=2</code> e <code>player=login</code>. Se o destino aparecer como <code>details///</code>, confira primeiro o username usado em <code>u</code>.</p>
         <p>A resposta é um inteiro: <code>-1</code> não confirma o voto, <code>0</code> não comprova voto recente e um timestamp positivo precisa estar dentro das últimas 12 horas. Não precisa configurar postback.</p>
         <?php elseif ($button === 'hopzoneu.php'): ?>
         <p>Informe o ID numérico do servidor e sua API Key. O VoteSystem gera pela API uma URL com <code>vote_id</code> vinculado ao login; use sempre o botão do painel para votar.</p>

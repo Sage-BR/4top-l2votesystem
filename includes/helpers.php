@@ -666,11 +666,18 @@ function claimReward($login, $objId, $hwid = null) {
         }
 
         // Marca logs como recompensados
-        $db->prepare(
-            "UPDATE 4top_log SET rewarded = 1, rewarded_at = NOW()
-             WHERE login = ? AND rewarded = 0
-               AND voted_at > DATE_SUB(NOW(), INTERVAL 12 HOUR)"
-        )->execute(array($login));
+        $confirmedTopIds = array_values(array_unique(array_filter(array_map('intval', array_keys($confirmed)), function ($id) {
+            return $id > 0;
+        })));
+        if (!empty($confirmedTopIds)) {
+            $placeholders = implode(',', array_fill(0, count($confirmedTopIds), '?'));
+            $stmtRewarded = $db->prepare(
+                "UPDATE 4top_log SET rewarded = 1, rewarded_at = NOW()
+                 WHERE login = ? AND rewarded = 0 AND top_id IN ({$placeholders})
+                   AND voted_at > DATE_SUB(NOW(), INTERVAL 12 HOUR)"
+            );
+            $stmtRewarded->execute(array_merge(array($login), $confirmedTopIds));
+        }
 
         $db->commit();
 
@@ -692,20 +699,33 @@ function claimReward($login, $objId, $hwid = null) {
 
 function getVoteLog($limit = 50, $offset = 0) {
     $db   = getDB();
-    // Agrupa por login + ip + dia — representa uma sessão de votação real
-    // Jogador que vota em vários tops no mesmo dia aparece em uma linha só
+    // Entregues: uma linha por entrega. Pendentes: agrupadas por login, IP e dia.
     $stmt = $db->prepare(
         "SELECT
             login,
-            ip,
-            MIN(voted_at)  AS voted_at,
-            MAX(rewarded)  AS rewarded,
-            GROUP_CONCAT(CASE WHEN t.top_btn = '4top.php' THEN t.name ELSE TRIM(REPLACE(t.name, '★', '')) END ORDER BY t.name SEPARATOR ', ') AS tops_voted,
-            COUNT(*)       AS total_tops
+            COALESCE(
+                MIN(CASE WHEN l.ip NOT LIKE '%:%' AND l.ip <> 'UNKNOWN' THEN l.ip END),
+                MIN(l.ip)
+            ) AS ip,
+            CASE WHEN MAX(l.rewarded) = 1 THEN MAX(l.rewarded_at) ELSE MIN(l.voted_at) END AS voted_at,
+            MAX(l.rewarded) AS rewarded,
+            GROUP_CONCAT(
+                DISTINCT CASE
+                    WHEN t.id IS NULL THEN CONCAT('Top removido (#', l.top_id, ')')
+                    WHEN t.top_btn = '4top.php' THEN t.name
+                    ELSE TRIM(REPLACE(t.name, '★', ''))
+                END SEPARATOR ', '
+            ) AS tops_voted,
+            COUNT(DISTINCT l.top_id) AS total_tops
          FROM 4top_log l
          LEFT JOIN 4top_tops t ON t.id = l.top_id
-         GROUP BY login, ip, DATE(voted_at)
-         ORDER BY voted_at DESC
+         GROUP BY l.login,
+             CASE
+                 WHEN l.rewarded = 1 AND l.rewarded_at IS NOT NULL
+                     THEN CONCAT('claim:', DATE_FORMAT(l.rewarded_at, '%Y-%m-%d %H:%i:%s'))
+                 ELSE CONCAT('pending:', l.ip, ':', DATE(l.voted_at))
+             END
+         ORDER BY MAX(l.voted_at) DESC
          LIMIT ? OFFSET ?"
     );
     $stmt->execute(array((int)$limit, (int)$offset));
