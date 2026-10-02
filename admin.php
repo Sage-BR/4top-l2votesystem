@@ -28,17 +28,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $top_btn = basename(trim($_POST['top_btn'] ?? ''));
 
         $url_templates = array(
+            'hopzoneu.php' => 'https://hopzone.eu/vote/{SERVER_ID}',
             'l2jbrasil.php'   => 'https://top.l2jbrasil.com/index.php?a=in&u={SERVER_ID}',
             '4top.php'        => 'https://top.4teambr.com/index.php?a=in&u={SERVER_ID}',
             'l2toporg.php'    => 'https://l2top.org/server/{SERVER_ID}/',
             'l2network.php'   => 'https://l2network.eu/index.php?a=in&u={SERVER_ID}',
-            'ragezone.php'    => 'https://forum.ragezone.com/topsites/{SERVER_ID}/vote',
         );
 
         if (empty($name) || empty($top_id) || empty($top_btn)) {
             $error = 'Nome, ID do Servidor e Top são obrigatórios.';
         } elseif (!isset($url_templates[$top_btn])) {
             $error = 'Top selecionado inválido.';
+        } elseif ($top_btn === 'hopzoneu.php' && (!ctype_digit($top_id) || (int)$top_id <= 0 || $token === '')) {
+            $error = 'Hopzone.eu: informe o ID numérico do servidor e sua API Key.';
         } elseif (!preg_match('/^[a-zA-Z0-9._\-]+$/', $top_id)) {
             $error = 'ID do Servidor contém caracteres inválidos.';
         } elseif ($top_btn !== '4top.php' && !has4Top()) {
@@ -78,11 +80,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $token   = substr(trim($_POST['top_token'] ?? ''), 0, 500);
 
         $url_templates = array(
+            'hopzoneu.php' => 'https://hopzone.eu/vote/{SERVER_ID}',
             'l2jbrasil.php'   => 'https://top.l2jbrasil.com/index.php?a=in&u={SERVER_ID}',
             '4top.php'        => 'https://top.4teambr.com/index.php?a=in&u={SERVER_ID}',
             'l2toporg.php'    => 'https://l2top.org/server/{SERVER_ID}/',
             'l2network.php'   => 'https://l2network.eu/index.php?a=in&u={SERVER_ID}',
-            'ragezone.php'    => 'https://forum.ragezone.com/topsites/{SERVER_ID}/vote',
         );
 
         if ($id <= 0 || empty($name) || empty($top_id)) {
@@ -96,6 +98,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (!$current || !isset($url_templates[$current['top_btn']])) {
                 $error = 'Top não encontrado ou inválido.';
+            } elseif ($current['top_btn'] === 'hopzoneu.php' && (!ctype_digit($top_id) || (int)$top_id <= 0 || ($token === '' && empty($current['token'])))) {
+                $error = 'Hopzone.eu: informe o ID numérico do servidor e sua API Key.';
             } else {
                 $url = str_replace('{SERVER_ID}', rawurlencode($top_id), $url_templates[$current['top_btn']]);
                 $savedToken = ($token !== '') ? $token : ($current['token'] ?? null);

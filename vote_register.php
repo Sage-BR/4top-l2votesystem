@@ -54,14 +54,21 @@ if ($topId <= 0) {
 
 // Verifica se o top existe e está ativo
 $db   = getDB();
-$stmt = $db->prepare("SELECT id FROM 4top_tops WHERE id = ? AND enabled = 1 LIMIT 1");
+$stmt = $db->prepare("SELECT id, top_btn FROM 4top_tops WHERE id = ? AND enabled = 1 LIMIT 1");
 $stmt->execute(array($topId));
-if (!$stmt->fetch()) {
+$registeredTop = $stmt->fetch(PDO::FETCH_ASSOC);
+if (!$registeredTop) {
     echo json_encode(array('ok' => false, 'msg' => 'top_not_found'));
     exit;
 }
 
 // Registra o clique — registerVote já faz check transacional
+if ($registeredTop['top_btn'] === 'hopzoneu.php') {
+    http_response_code(409);
+    echo json_encode(array('ok' => false, 'msg' => 'awaiting_vote_confirmation'));
+    exit;
+}
+
 $ip       = clientIp();
 $ipSource = clientIpSource();
 $result   = registerVote($login, $topId, $ip);

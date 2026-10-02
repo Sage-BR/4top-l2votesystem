@@ -18,6 +18,7 @@
 
 // API local - voteapi.php no mesmo servidor
 define('VOTEAPI_LOCAL', 'voteapi.php');
+require_once __DIR__ . '/hopzoneeu.php';
 
 // Mapa arquivo → identificador aceito pelo CDN
 function getTopKey($btn) {
@@ -26,7 +27,6 @@ function getTopKey($btn) {
         '4top.php'        => '4top',
         'l2toporg.php'    => 'l2toporg',
         'l2network.php'   => 'l2network',
-        'ragezone.php'    => 'ragezone',
     );
     return isset($map[$btn]) ? $map[$btn] : null;
 }
@@ -37,6 +37,7 @@ function getTopKey($btn) {
  */
 function loadTopApi($top) {
     $btn    = basename((string)(isset($top['top_btn']) ? $top['top_btn'] : ''));
+    if ($btn === 'hopzoneu.php') return new HopzoneEuApi($top);
     $topKey = getTopKey($btn);
     if (!$topKey) return null;
 
@@ -177,6 +178,8 @@ function getTopVoteUrl($top, $login = '') {
     $login    = trim((string)$login);
 
     switch ($btn) {
+        case 'hopzoneu.php':
+            return (new HopzoneEuApi($top))->getVoteUrl($login);
         case '4top.php':
             $url = 'https://top.4teambr.com/index.php?a=in&u=' . urlencode($serverId);
             if ($login !== '') $url .= '&login=' . urlencode($login);
@@ -192,10 +195,6 @@ function getTopVoteUrl($top, $login = '') {
         case 'l2network.php':
             return 'https://l2network.eu/index.php?a=in&u=' . urlencode($serverId) . '&id=' . urlencode($login ?: $serverId);
 
-        case 'ragezone.php':
-            $url = 'https://forum.ragezone.com/topsites/' . urlencode($serverId) . '/vote';
-            if ($login !== '') $url .= '?ref=' . urlencode($login);
-            return $url;
     }
 
     // Fallback genérico para outros tops
@@ -217,6 +216,12 @@ function ensureVoteSchema() {
     try {
         $db = getDB();
         $tables = array(
+            '4top_hopzone_votes' => "CREATE TABLE IF NOT EXISTS `4top_hopzone_votes` (
+                `top_id` INT NOT NULL, `login` VARCHAR(45) NOT NULL,
+                `vote_id` VARCHAR(19) NOT NULL, `vote_url` VARCHAR(500) NOT NULL,
+                `config_hash` CHAR(64) NOT NULL, `created_at` DATETIME NOT NULL,
+                PRIMARY KEY (`top_id`, `login`), UNIQUE KEY `idx_top_vote` (`top_id`, `vote_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
             '4top_tops' => "CREATE TABLE IF NOT EXISTS `4top_tops` (
                     `id` INT NOT NULL AUTO_INCREMENT, `name` VARCHAR(100) NOT NULL,
                     `top_id` VARCHAR(200) NOT NULL, `token` VARCHAR(500) DEFAULT NULL,
@@ -287,6 +292,10 @@ function ensureVoteSchema() {
         $db->exec("UPDATE 4top_tops SET url = REPLACE(url, 'a=in&s=', 'a=in&u=') WHERE top_btn IN ('4top.php','l2jbrasil.php') AND url LIKE '%a=in&s=%'");
 
         $stmt = $db->prepare("SELECT setting_value FROM 4top_settings WHERE setting_key = ? LIMIT 1");
+        // Remove o cadastro da integração descontinuada; mantém o histórico de votos.
+        $removedTop = $db->prepare('DELETE FROM 4top_tops WHERE top_btn = ?');
+        $removedTop->execute(array('ragezone.php'));
+
         $stmt->execute(array('anticheat_enabled'));
         if ($stmt->fetchColumn() === false) {
             setSetting('anticheat_enabled', '1');
@@ -356,11 +365,11 @@ function logAnticheatDetection(array $data) {
 
 function getAvailableTops() {
     return array(
+        'hopzoneu.php' => array('name' => 'Hopzone.eu', 'site' => 'hopzone.eu', 'token' => true, 'featured' => false, 'register_url' => 'https://hopzone.eu/'),
         '4top.php'        => array('name' => '4TOP ★',      'site' => 'top.4teambr.com',   'token' => true,  'featured' => true,  'register_url' => 'https://top.4teambr.com/addserver.php'),
         'l2jbrasil.php'   => array('name' => 'L2JBrasil ★', 'site' => 'top.l2jbrasil.com', 'token' => true,  'featured' => true,  'register_url' => 'https://top.l2jbrasil.com/index.php?a=add'),
         'l2toporg.php'    => array('name' => 'L2Top.org ★', 'site' => 'l2top.org',         'token' => true,  'featured' => true,  'register_url' => 'https://l2top.org/add-server/'),
         'l2network.php'   => array('name' => 'L2Network',   'site' => 'l2network.eu',      'token' => true,  'featured' => false, 'register_url' => 'https://l2network.eu/add-server'),
-        'ragezone.php'    => array('name' => 'RaGEZONE',    'site' => 'forum.ragezone.com', 'token' => true,  'featured' => false, 'register_url' => 'https://forum.ragezone.com/topsites/add'),
     );
 }
 

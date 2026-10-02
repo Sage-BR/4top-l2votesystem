@@ -102,11 +102,11 @@ if ($action === 'list_tops') {
     echo json_encode(array(
         'error' => false,
         'tops'  => array(
+            'hopzoneu.php' => array('name' => 'Hopzone.eu', 'site' => 'hopzone.eu', 'token' => true),
             '4top.php'      => array('name' => '4TOP',      'site' => 'top.4teambr.com',   'token' => true),
             'l2jbrasil.php' => array('name' => 'L2JBrasil', 'site' => 'top.l2jbrasil.com', 'token' => true),
             'l2toporg.php'  => array('name' => 'L2Top.org', 'site' => 'l2top.org',         'token' => true),
             'l2network.php' => array('name' => 'L2Network', 'site' => 'l2network.eu',      'token' => true),
-            'ragezone.php'  => array('name' => 'RaGEZONE',  'site' => 'forum.ragezone.com', 'token' => true),
         ),
     ));
     exit;
@@ -133,6 +133,38 @@ if (!in_array($action, $validActions)) {
 }
 
 // ── Build handler ─────────────────────────────────────────────────────────────
+// O Hopzone usa estado persistente por conta, compartilhado com o painel local.
+if (preg_replace('/\.php$/i', '', $top) === 'hopzoneu') {
+    if (!file_exists(__DIR__ . '/.installed') || !file_exists(__DIR__ . '/config.php')) {
+        echo json_encode(array('error' => true, 'message' => 'Hopzone.eu requer instalação local'));
+        exit;
+    }
+    require_once __DIR__ . '/config.php';
+    require_once __DIR__ . '/includes/db.php';
+    require_once __DIR__ . '/includes/core.php';
+    require_once __DIR__ . '/includes/helpers.php';
+    $stmt = getDB()->prepare("SELECT * FROM 4top_tops WHERE top_btn = 'hopzoneu.php' AND top_id = ? AND enabled = 1 LIMIT 1");
+    $stmt->execute(array($serverId));
+    $hopzoneTop = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$hopzoneTop || $token === '' || !hash_equals((string)$hopzoneTop['token'], (string)$token)) {
+        echo json_encode(array('error' => true, 'message' => 'Hopzone.eu: cadastro ou chave inválidos'));
+        exit;
+    }
+    $hopzoneApi = new HopzoneEuApi($hopzoneTop);
+    if ($action === 'vote_url') {
+        try {
+            echo json_encode(array('error' => false, 'voteUrl' => $hopzoneApi->prepareVote($login)));
+        } catch (Throwable $e) {
+            echo json_encode(array('error' => true, 'message' => 'Hopzone.eu: não foi possível gerar o link'));
+        }
+    } else {
+        $hopzoneResult = $hopzoneApi->checkVote($ip, $login);
+        $hopzoneResult->serverTime = time();
+        echo json_encode($hopzoneResult);
+    }
+    exit;
+}
+
 $handler = buildHandler($top, $token, $serverId);
 if ($handler === null) {
     echo json_encode(array('error' => true, 'message' => "Top '$top' não suportado"));
@@ -167,7 +199,6 @@ static $map = array(
         '4top'        => 'FourTopTop',
         'l2toporg'    => 'L2TopOrgTop',
         'l2network'   => 'L2NetworkTop',
-        'ragezone'    => 'RaGezoneTop',
     );
     $class = isset($map[$top]) ? $map[$top] : null;
     if ($class === null || !class_exists($class)) return null;
@@ -755,83 +786,5 @@ class L2NetworkTop extends TopBase {
         curl_close($ch);
 
         return $err ? false : $body;
-    }
-}
-
-
-// =============================================================================
-// RaGEZONE Top Sites — voto mensal identificado por login (ref)
-// =============================================================================
-class RaGezoneTop extends TopBase {
-    protected $name        = 'RaGEZONE';
-    protected $apiTimezone = 'UTC';
-    const API_BASE         = 'https://forum.ragezone.com/topsites';
-    const VOTE_WINDOW      = 86400; // 24h (mesmo que ranking seja mensal, CD de voto é 24h)
-
-    public function checkVote($ip, $login = '') {
-        if (empty($this->token)) return TopResult::fail('RaGEZONE: Listing Key não configurada');
-        if (empty($this->serverId)) return TopResult::fail('RaGEZONE: Listing ID não configurado');
-        if (empty($login)) return TopResult::fail('RaGEZONE: Login obrigatório (ref)');
-
-        $url = self::API_BASE . '/' . urlencode($this->serverId) . '/vote-check?ref=' . urlencode($login);
-        $body = $this->httpGet($url, array(
-            'RZ-Listing-Key: ' . $this->token,
-            'Accept: application/json',
-        ));
-
-        if (!$body) {
-            $this->log("ERRO: RaGEZONE API inacessível | url: $url");
-            return TopResult::fail('RaGEZONE API inacessível');
-        }
-
-        $data = $this->decodeJson($body);
-        if (!$data) {
-            $this->log("ERRO: RaGEZONE JSON inválido | body: $body");
-            return TopResult::fail('RaGEZONE: JSON inválido');
-        }
-
-        $voted  = (bool)($data['voted'] ?? false);
-        // RaGEZONE pode retornar voted_at / time (Unix) ou period (Y-m)
-        $voteTime = 0;
-        if (isset($data['time']) && is_numeric($data['time'])) {
-            $voteTime = (int)$data['time'];
-        } elseif (isset($data['voted_at']) && is_numeric($data['voted_at'])) {
-            $voteTime = (int)$data['voted_at'];
-        } elseif (isset($data['data']['time']) && is_numeric($data['data']['time'])) {
-            $voteTime = (int)$data['data']['time'];
-        }
-        // Fallback: se só tem period mensal, usa início do período como referência
-        $period = (string)($data['period'] ?? ($data['data']['period'] ?? ''));
-        if ($voteTime === 0 && $period !== '') {
-            $voteTime = strtotime($period . '-01 00:00:00 UTC') ?: time();
-        }
-        if ($voteTime === 0) $voteTime = time();
-
-        $rawJson = json_encode($data);
-
-        if ($voted && $this->isVoteValid($voteTime, self::VOTE_WINDOW)) {
-            $this->log("VOTO CONFIRMADO | login=$login ip=$ip | voteTime=$voteTime | period=$period | raw: $rawJson");
-            return TopResult::ok($voteTime, array(
-                'period' => $period,
-                'votes'  => $data['votes'] ?? ($data['data']['votes'] ?? 0),
-            ));
-        }
-
-        if ($voted) {
-            $this->log("VOTO RECUSADO (EXPIRADO) | login=$login ip=$ip | voteTime=$voteTime | period=$period passou de 24h | raw: $rawJson");
-            return TopResult::notVoted('Voto expirado (mais de 24h)');
-        }
-
-        $this->log("VOTO NÃO ENCONTRADO | login=$login ip=$ip | RaGEZONE retornou voted=false | raw: $rawJson");
-        return TopResult::notVoted('Não votou neste período (24h)');
-    }
-
-    public function getVoteUrl($login = '') {
-        // vote?ref={login} — o ref é o identificador do jogador
-        $url = self::API_BASE . '/' . urlencode($this->serverId) . '/vote';
-        if (!empty($login)) {
-            $url .= '?ref=' . urlencode($login);
-        }
-        return $url;
     }
 }

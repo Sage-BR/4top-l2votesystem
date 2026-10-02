@@ -90,7 +90,7 @@ try {
                 if (!$apiResult->error && $apiResult->voted) {
                     $voteTime     = $apiResult->voteTime > 0 ? $apiResult->voteTime : 0;
                     $secs_ago_api = max(0, time() - $voteTime);
-                    $apiWindow    = ($top['top_btn'] === 'ragezone.php') ? 86400 : 43200;
+                    $apiWindow    = 43200;
                     if ($voteTime === 0 || $secs_ago_api < $apiWindow) {
                         $cooldown_left = ($voteTime === 0) ? 0 : $apiWindow - $secs_ago_api;
                         $can_vote      = false;
@@ -212,7 +212,7 @@ foreach ($tops_status as $idx => $top):
     $base     = __DIR__ . '/assets/buttons/' . $btn_file;
 
     $img_path = null;
-    foreach (array('png','jpg','jpeg','gif') as $ext) {
+    foreach (array('png','jpg','jpeg','gif','svg') as $ext) {
         if (file_exists($base . '.' . $ext)) { $img_path = 'assets/buttons/' . $btn_file . '.' . $ext; break; }
     }
     if ($img_path === null) { $img_path = 'assets/buttons/default.png'; }
