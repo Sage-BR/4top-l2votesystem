@@ -1,167 +1,218 @@
-# 🗳️ VoteSystem 4Top Servers
+# VoteSystem 4Top Servers
 
-> Sistema de votação para servidores de **Lineage 2** — vote nos principais sites de ranking, ganhe recompensas in-game automaticamente.
+Painel de votação para servidores de **Lineage 2**. O jogador entra com a conta do jogo, verifica os votos e escolhe o personagem que receberá os itens. A entrega grava diretamente no banco do jogo, sem mod Java ou cron.
 
----
+## Recursos
 
-## ✨ O que é
+- Oito tops disponíveis, com **4TOP obrigatório**, cadastrado primeiro e mantido ativo.
+- Verificação de todos os tops ativos antes da coleta.
+- Escolha de personagem da conta e sem exclusão agendada.
+- Recompensas configuráveis por ID de item, quantidade e descrição.
+- Intervalo de **12 horas entre coletas**, por conta e identificação do navegador quando disponível.
+- Admin para cadastro, edição, ativação e remoção de tops, recompensas e consulta de logs.
+- Anticheat opcional para sinais de VPN, proxy e conexão suspeita.
+- Português brasileiro, inglês, espanhol e russo, incluindo avisos e modais de integração.
 
-O VoteSystem é um painel web que permite aos jogadores do seu servidor votarem nos principais sites de ranking de Lineage 2 e receberem recompensas automaticamente no personagem. Tudo sem mod Java, sem cron job — a entrega é feita diretamente no banco de dados do jogo.
+## Tops suportados
 
----
+O catálogo fica em `includes/helpers.php`. As instruções específicas aparecem nos modais do admin.
 
-## 🗳️ Sites de Votação Suportados
+| Top | Identificador no cadastro | Token / API Key | Confirmação |
+|---|---|---|---|
+| [4TOP](https://top.4teambr.com) | Identificador do servidor no ranking | API Key do painel | API vinculada à conta; obrigatório |
+| [L2JBrasil](https://top.l2jbrasil.com) | Username do servidor, parâmetro `u` | O adaptador atual não usa o token na consulta | API por `player_id` derivado do login; consulta secundária por IP |
+| [L2Top.org](https://l2top.org) | ID do servidor | Token da API | API por login |
+| [L2Network](https://l2network.eu) | Valor exato de `u` do link oficial | API Key | API por login |
+| [Hopzone.eu](https://hopzone.eu) | ID numérico do servidor | API Key | API com `vote_id` vinculado à conta |
+| [MMTop200](https://mmtop200.com) | ID numérico do servidor | API Key de Vote Checker | Postback autenticado por conta |
+| [GamingTop100](https://www.gamingtop100.net) | ID numérico do servidor | Não utilizado neste adaptador | Postback com referência numérica vinculada à conta |
+| [Top100Arena](https://www.top100arena.com) | ID numérico do servidor | Não utilizado neste adaptador | Postback com referência numérica vinculada à conta |
 
-| Site | Link |
-|---|---|
-| **4TOP** *(obrigatório)* | [top.4teambr.com](https://top.4teambr.com) |
-| **L2JBrasil** | [top.l2jbrasil.com](https://top.l2jbrasil.com) |
-| **Hopzone.eu** | [hopzone.eu](https://hopzone.eu) |
-| **MMTop200** | [mmtop200.com](https://mmtop200.com) |
-| **GamingTop100** | [gamingtop100.net](https://www.gamingtop100.net) |
-| **Top100Arena** | [top100arena.com](https://www.top100arena.com) |
-| **L2Top.org** | [l2top.org](https://l2top.org) |
-| **L2Network** | [l2network.eu](https://l2network.eu) |
+Os nomes `4top.php`, `l2network.php` etc. são identificadores dos adaptadores no cadastro. Não são arquivos de uma pasta `tops/`: os handlers são carregados localmente pelos módulos de `includes/`.
 
-> O **4TOP** é obrigatório para o sistema funcionar. Os demais são opcionais e configuráveis pelo painel de admin.
+### L2Network
+
+Informe o **username do proprietário do cadastro** presente em `u` no link oficial de votação. Ele pode ser diferente do nome exibido do servidor e do ID numérico da página de detalhes. Se o link abrir `details///`, confira esse valor.
+
+O link envia o login do jogador em `id`; a API recebe `apiKey`, `type=2` e `player=login`. Respostas `-1` e `0` não comprovam voto recente. Um timestamp positivo precisa estar na janela de 12 horas.
 
 ### Hopzone.eu
 
-Cadastre o ID numérico do servidor e a API Key no admin. Ao abrir o botão de voto,
-A ação `hopzone_vote` em `voteapi.php` gera uma URL pela API e salva o `vote_id` associado ao login.
-Reaberturas reutilizam o voto pendente por até 12 horas ou o voto concluído ainda válido.
-A verificação exige `status=completed`, servidor/identificador correspondentes e voto
-com menos de 12 horas. O IP só é consultado quando não existe vínculo salvo para a conta;
-um voto encontrado por IP é vinculado à conta e não pode confirmar outra conta.
-Cliques, votos pendentes e falhas da API não confirmam votos nem entregam recompensas.
-Publique também `includes/hopzoneeu.php` e `assets/buttons/hopzoneu.png`.
-A tabela `4top_hopzone_votes` é criada automaticamente na atualização do schema.
-Contrato: https://hopzone.eu/docs.html/
+O botão usa a ação `hopzone_vote` de `voteapi.php` para gerar a URL pela API e salvar o `vote_id` associado ao login em `4top_hopzone_votes`.
 
-### MMTop200, GamingTop100 e Top100Arena
+Reaberturas reutilizam votos pendentes por até 12 horas ou votos concluídos ainda válidos. A confirmação exige `status=completed`, servidor e identificador correspondentes e voto recente. A consulta por IP é usada quando não existe vínculo salvo para a conta; um voto vinculado não pode confirmar outra conta.
 
-Integrações adaptadas do painel Loong: confirmação por postback autenticado e vinculado
-ao login. Checker por IP não comprova a conta e não libera a recompensa nesses tops.
-O horário da primeira confirmação por postback é preservado durante a janela de 12h.
-Registros antigos confirmados somente por IP não substituem um postback da conta.
-MMTop200 envia o login no link; GamingTop100 e Top100Arena exigem uma referência numérica,
-associada ao login na tabela automática `4top_postback_refs`.
-Cadastre o ID numérico no admin e, para MMTop200, o Vote Checker Token no campo Token.
-Configure o endereço HTTPS completo de `voteapi.php` como callback de MMTop200/GamingTop100;
-no Top100Arena, use `voteapi.php?postback=` (o top acrescenta a referência do incentivo).
-O admin exibe o link de configuração de cada cadastro. MMTop200 valida a origem DNS
-`validator.mmtop200.com` sem senha adicional; GamingTop100 usa `gamingtop100.net`.
-Top100Arena usa a origem `3.86.48.116` do código de referência. Para origens oficiais
-atualizadas, `VOTE_POSTBACK_ALLOWED_IPS` pode ser definido em config.php como um array
-de nomes de botão (`mmtop200.php`, `gamingtop100.php`, `top100arena.php`) para listas de IPs.
-Callbacks rejeitam origens não autorizadas, não entregam recompensas diretamente e
-duplicatas na janela de 12h não renovam o horário. Cliques não confirmam votos.
-GamingTop100: https://www.gamingtop100.net/vote-check
+### Postbacks
 
----
-
-## ⚙️ Projetos Compatíveis
-
-| Projeto | Hash de Senha | Entrega de Reward |
-|---|---|---|
-| **aCis** (362 ~ 408) | SHA-1 Base64 | Direto no `items` |
-| **aCis** (409+) | BCrypt | Direto no `items` |
-| **L2JOrion** | SHA-1 Base64 | Direto no `items` |
-| **L2JMobius** (all Chronicles) | SHA-1 Base64 | Direto no `items` |
-| **L2JSunrise** | SHA-1 Base64 | Direto no `items` |
-| **L2Mythras** | SHA-1 Base64 | Direto no `items` |
-| **L2JLisvus** | SHA-1 Base64 | Direto no `items` |
-
-> O sistema detecta automaticamente o tipo de hash armazenado (BCrypt vs SHA-1) — nenhuma configuração extra necessária ao migrar versões do aCis.
-
----
-
-## 🖥️ Requisitos
-
-| Requisito | Versão |
+| Top | Callback a configurar no painel do top |
 |---|---|
-| **PHP** | 5.6 ~ 8.2 |
-| **MySQL / MariaDB** | 5.7+ |
-| **Extensão PHP** | `pdo_mysql`, `curl` |
+| MMTop200 | `https://seu-dominio/voteapi.php` |
+| GamingTop100 | `https://seu-dominio/voteapi.php` |
+| Top100Arena | `https://seu-dominio/voteapi.php?postback=` |
 
----
+Use o endereço completo exibido pelo admin, incluindo a subpasta da instalação quando houver. No Top100Arena, preserve `?postback=`: o top acrescenta a referência do incentivo.
 
-## 🚀 Como Funciona
+MMTop200 envia o login. GamingTop100 e Top100Arena usam referências numéricas armazenadas em `4top_postback_refs`. A confirmação exige origem autenticada e vínculo com a conta; IP sozinho não substitui o postback.
 
-### Para o Jogador
+As origens padrão ficam em `includes/postbacktops.php`. A constante opcional `VOTE_POSTBACK_ALLOWED_IPS` permite configurar listas de IPs por adaptador (`mmtop200.php`, `gamingtop100.php`, `top100arena.php`). Duplicatas na janela de 12 horas preservam o horário da primeira confirmação. Callbacks não entregam itens diretamente.
 
-1. Acessa o painel e faz login com a conta do servidor de jogo
-2. Clica na imagem de cada site de votação — uma nova aba abre com o site
-3. Vota de verdade no site que abriu
-4. Repete para todos os tops disponíveis
-5. Volta ao painel e clica em **Verificar Votos**
-6. Escolhe o personagem que vai receber a recompensa
-7. Clica em **Receber Recompensa** — os itens aparecem na bag automaticamente
-8. Pode votar novamente após **12 horas**
+## Projetos e schemas do jogo
 
-### Para o Admin
+| `GAME_PROJECT` | Projeto | Coluna do personagem | Particularidade do INSERT em items |
+|---|---|---|---|
+| `acis` | aCis antigo e atual | `obj_Id` | `mana_left`; `time` omitido para usar o default quando existir |
+| `l2jorion` | L2JOrion | `obj_Id` | `mana_left` |
+| `l2jmobius` | L2JMobius | `charId` | `mana_left` e `time` |
+| `l2jsunrise` | L2JSunrise | `charId` | `mana_left` e `time` |
+| `l2mythras` | L2Mythras | `obj_Id` | Campos próprios de atributos, vida útil e aparência |
+| `l2jlisvus` | L2JLisvus | `obj_Id` | Sem `mana_left` e `time` no INSERT |
+| `l2jserver` | L2J4TeamC2 | `obj_Id` | `time_of_use` |
 
-- Acessa `admin.php` com uma conta com `access_level >= 1`
-- Adiciona os sites de votação desejados com o ID/token de cada um
-- Configura os itens de recompensa (ID do item + quantidade)
-- Acompanha o log de votos agrupado por sessão
+A verificação de senha detecta BCrypt pelo prefixo `$2` e comprimento de 60 caracteres; o outro formato é SHA-1 Base64. O perfil aCis aceita ambos sem alterar a configuração. O projeto selecionado define as colunas e o INSERT dos itens; forks personalizados precisam ser comparados com `includes/core.php`.
 
----
+Personagens são filtrados por `account_name` e `COALESCE(deletetime, 0) = 0`, aceitando valores nulos de bases antigas, e ordenados por `lastAccess`.
 
-## 📁 Estrutura de Arquivos
+## Requisitos
 
-```
+- **PHP 8.2** como referência usada nesta manutenção. O código atual não deve ser anunciado como compatível com PHP 5.6: usa recursos posteriores, como `??` e opções modernas de sessão.
+- Extensões `pdo_mysql` e `curl`, sessões funcionando e diretório de sessão gravável.
+- MySQL/MariaDB com transações e bloqueios nomeados `GET_LOCK`/`RELEASE_LOCK`.
+- Tabelas transacionais, como InnoDB, para que o rollback proteja a entrega.
+- Acesso às tabelas do jogo e saída de rede para as APIs dos tops e consultas do anticheat.
+- Permissão de escrita na pasta da aplicação para os logs.
+
+O usuário do banco precisa de leitura e gravação nas tabelas usadas. Instalação e atualização do schema também exigem `CREATE`, `ALTER` e criação de índices.
+
+## Instalação
+
+1. Envie os arquivos ao servidor web, incluindo `.htaccess` ou `web.config` conforme o servidor.
+2. Abra `install.php` e selecione o projeto do jogo.
+3. Informe a conexão com o banco que contém `accounts`, `characters` e `items`.
+4. Crie as tabelas pelo assistente, que gera `config.php`. As páginas também exigem o arquivo marcador `.installed`: confirme sua existência na raiz. O instalador atual não o cria; em uma instalação nova, crie esse arquivo vazio após concluir as tabelas.
+5. Entre com uma conta administrativa. O nível mínimo padrão é **1**, configurável por `VS_ADMIN_ACCESS_LEVEL`.
+6. Adicione o 4TOP primeiro e os demais tops desejados.
+7. Leia as instruções de integração e configure os callbacks necessários.
+8. Cadastre os itens e ajuste o anticheat pelo admin.
+9. Confirme a remoção de `install.php`: o assistente tenta removê-lo automaticamente após criar as tabelas. Se não conseguir, remova ou renomeie manualmente.
+
+`config.sample.php` documenta as opções de banco, projeto, proxies e anticheat. Não publique credenciais reais nem envie `config.php` ao controle de versão.
+
+## Votação e entrega
+
+1. O jogador entra com a conta do jogo e abre os sites pelos banners.
+2. Conclui os votos em todos os tops ativos.
+3. Clica em **Verificar Votos**; o sistema consulta os registros locais e adaptadores apropriados.
+4. A sessão recebe a autorização de coleta e o jogador escolhe o personagem.
+5. Ao clicar em **Receber Recompensa**, o servidor valida o personagem, obtém as travas e confere o intervalo de coleta.
+6. Os itens e os registros são gravados na transação. Após o commit, a autorização é removida e a confirmação aparece.
+
+A autorização é preservada em caso de falha antes da conclusão para permitir nova tentativa. O botão bloqueia cliques repetidos; as travas e o cooldown protegem a coleta. A sessão é liberada durante consultas externas.
+
+Há duas janelas distintas: a validade do voto usa seu horário de confirmação, quando fornecido pelo top; o intervalo entre coletas usa `claimed_at` em `4top_reward_claims`.
+
+Os itens são inseridos em `items` com `loc = INVENTORY`. A atualização visual depende do servidor de jogo: a gravação no banco não envia um pacote de atualização ao cliente conectado.
+
+## Estrutura de arquivos
+
+```text
 /
-├── index.php               # Página de login
-├── vote.php                # Painel de votação do jogador
-├── admin.php               # Painel de administração
-├── vote_callback.php       # Callback para ArenaTop100 (postback)
-├── vote_register.php       # Registro de votos via callback
-├── install.php             # Assistente de instalação
-├── config.php              # Gerado pelo install (não compartilhar)
+├── index.php                     # Login
+├── logout.php                    # Encerramento da sessão
+├── vote.php                      # Votação, verificação e coleta por AJAX
+├── admin.php                     # Tops, recompensas, anticheat e logs
+├── voteapi.php                   # APIs, postbacks e URL Hopzone
+├── vote_register.php             # Endpoint legado de registro; não entrega itens
+├── install.php                   # Assistente de instalação
+├── config.sample.php             # Configuração de exemplo
+├── config.php                    # Gerado na instalação; contém credenciais
+├── .installed                    # Marcador exigido pelas páginas; verificar na instalação
+├── .htaccess                     # Proteção Apache/LiteSpeed
+├── web.config                    # Proteção IIS
+├── README.md
 ├── assets/
-│   ├── css/main.css
-│   └── buttons/            # Imagens dos botões dos tops
+│   ├── favicon.png
+│   ├── css/main.css              # Estilos
+│   ├── js/i18n.js                # Dicionários e aplicação das traduções
+│   └── buttons/                  # Banners e imagem padrão
+├── engine/
+│   └── anticheat.php             # Análise de risco e cache
 └── includes/
-    ├── bootstrap.php       # Carregamento e layout
-    ├── layout.php          # ⭐ Edite aqui: título, favicon, logo, rodapé
-    ├── core.php            # Autenticação e entrega de reward
-    ├── helpers.php         # Lógica de votação e cooldown
-    ├── auth.php            # Controle de sessão
-    └── db.php              # Conexão PDO
+    ├── bootstrap.php             # Carregamento, schema e helpers de layout
+    ├── layout.php                # Marca, navegação e rodapé
+    ├── auth.php                  # Controle de acesso
+    ├── db.php                    # Conexão PDO
+    ├── core.php                  # Senhas, personagens, itens, IP e sessão
+    ├── helpers.php               # Catálogo, schema, CRUD, votos e coleta
+    ├── top_handlers.php          # Adaptadores das APIs
+    ├── hopzoneeu.php             # Vínculo e consulta Hopzone
+    ├── postbacktops.php          # Callbacks e referências
+    ├── integration_help.php      # Modais de integração
+    └── reward_debug.php          # Debug de verificação e entrega
 ```
 
----
+Logs na raiz: `vote_api.log` e `reward_delivery.log`, conforme o fluxo executado. `vote_register.log` e `voteapi.log` aparecem nas regras de proteção legadas, mas não são os logs gravados pelos adaptadores atuais. Não existe `vote_callback.php`: os postbacks são recebidos por `voteapi.php`.
 
-## 🛠️ Instalação
+## Tabelas auxiliares
 
-1. Faça upload dos arquivos para o seu servidor web
-2. Acesse `install.php` no navegador
-3. Selecione o projeto do seu servidor (aCis, L2JMobius, etc.)
-4. Preencha os dados de conexão com o banco do jogo
-5. Clique em **Criar Tabelas**
-6. Faça login com uma conta com `access_level >= 1` para acessar o admin
-7. Adicione os tops e configure as recompensas
-8. **Delete ou renomeie o `install.php`** após a instalação
+| Tabela | Finalidade |
+|---|---|
+| `4top_tops` | Cadastro, credenciais, ativação e ordenação |
+| `4top_rewards` | Itens, quantidades e descrições |
+| `4top_log` | Votos por top e marcação de recompensa |
+| `4top_reward_claims` | Coletas e intervalo por conta/HWID |
+| `4top_hopzone_votes` | Conta e identificador do voto Hopzone |
+| `4top_postback_refs` | Referências numéricas dos postbacks |
+| `4top_anticheat_log` | Detecções e bloqueios |
+| `4top_settings` | Configurações persistidas pelo admin |
 
----
+`ensureVoteSchema()` cria e atualiza as tabelas. O schema atual é **versão 7**; a conferência é guardada em sessão por até uma hora. A primeira atualização pode demorar em históricos grandes por causa dos índices.
 
+No admin, entregas são agrupadas por conta e horário da entrega; pendentes, por conta, IP e dia. Apenas os tops confirmados naquela coleta são marcados como recompensados.
 
-## 📋 Notas
+## IP e anticheat
 
-- Os adaptadores chamam as APIs diretamente; `voteapi.php` continua disponível como endpoint e callback, mas o painel não faz HTTP para si mesmo. Publique também `includes/top_handlers.php`.
-- Gravações do admin usam redirecionamento após POST. Histórico e estatísticas são carregados automaticamente ao acessar o painel.
-- A versão 7 do schema cria índices de cooldown/data uma vez por banco. A primeira atualização pode demorar em históricos grandes e exige permissão `ALTER`.
-- A sessão é liberada durante as consultas externas. A autorização de coleta é consumida antes da entrega, que mantém transação e bloqueios por conta/HWID. Em caso de falha, verifique os votos novamente.
+`VS_TRUSTED_PROXY_CIDRS` configura os proxies confiáveis usados para resolver o IP real. O resolvedor prefere IPv4 entre candidatos válidos e mantém IPv6 quando não há IPv4 real disponível. Não converte IPv6 artificialmente nem troca o cliente por outro salto da cadeia de proxies.
 
-- O cooldown de **12 horas** é baseado no horário real do voto registrado pela API de cada top, não no horário de entrega da recompensa
-- Se um jogador votar de um IP diferente, o sistema verifica o banco de dados local para garantir que o cooldown seja respeitado
+O anticheat pode ser ligado ou desligado no admin. Seus padrões são configurados por `VS_ANTICHEAT_ENABLED`, `VS_ANTICHEAT_RISK_BLOCK`, `VS_ANTICHEAT_CACHE_SEC` e `VS_ANTICHEAT_IPAPI_TIMEOUT`. Falhas da consulta externa não bloqueiam o jogador por si só.
 
----
+## Traduções e personalização
 
-## 🤝 Créditos
+- Identidade visual, favicon e rodapé: `includes/layout.php`.
+- Estilos: `assets/css/main.css`.
+- Dicionários e instruções traduzidas: `assets/js/i18n.js`.
+- Textos HTML usam `data-i18n`; avisos AJAX usam `msg_key`.
+- O idioma é preservado em memória, cookie e armazenamento do navegador quando disponível.
+- O script de tradução recebe uma versão baseada na data de modificação para atualizar o cache.
+- Nomes de servidores, jogadores e descrições de itens cadastrados são conteúdo personalizado e não recebem tradução automática.
 
-Desenvolvido por **[4Top Servers](https://top.4teambr.com)**
+## Debug da entrega
 
-- 🌐 Site: [top.4teambr.com](https://top.4teambr.com)
-- 💬 Discord: [discord.gg](https://discord.com/invite/rDBcgSH)
+`reward_delivery.log` registra linhas JSON com horário **UTC**, identificador aleatório da requisição, etapa, tipo da exceção, arquivo/linha e códigos SQL quando disponíveis. Não registra login, IP, senha, token ou conteúdo livre de consultas SQL.
+
+| Registro ou sintoma | Investigação |
+|---|---|
+| `db_connection_exception` / HTTP 503 | Conexão com o banco; se o 503 vier da hospedagem, consulte os logs dela |
+| `request_exception` / HTTP 500 | Tipo da exceção, arquivo e linha |
+| `delivery_exception` | Etapa da entrega e códigos SQL |
+| `transaction_committed` | Transação da coleta concluída |
+| Verificação expirada | Sessão sem autorização; verificar votos novamente |
+| Postback pendente | Origem do callback e vínculo da conta em `vote_api.log` |
+
+Consultas de travas precisam consumir o resultado e fechar o cursor; resultados pendentes podem causar o erro MySQL **2014**. O código trata essas consultas em `core.php` e `helpers.php`.
+
+Para reportar falhas, envie o status HTTP e as linhas relativas à mesma requisição. Não compartilhe cookies, credenciais ou tokens. O debug precisa de permissão de escrita e não tem rotação automática: acompanhe o tamanho e arquive os registros conforme necessário.
+
+## Atualização e publicação
+
+- Envie juntos os módulos PHP, assets e arquivos de proteção.
+- Preserve `config.php`, `.installed` e os dados existentes; faça backup do banco antes de atualizar o schema.
+- Confira que credenciais e logs não podem ser baixados por HTTP. `.htaccess` e `web.config` protegem `reward_delivery.log`; confira também a proteção de `vote_api.log` na hospedagem.
+- Em Nginx, configure restrições equivalentes: ele não aplica `.htaccess` nem `web.config`.
+- Os adaptadores consultam as APIs diretamente; o painel não faz HTTP para si mesmo.
+
+## Créditos
+
+Desenvolvido por **[4Top Servers](https://top.4teambr.com)**.
+
+- [Site](https://top.4teambr.com)
+- [Discord](https://discord.com/invite/rDBcgSH)
