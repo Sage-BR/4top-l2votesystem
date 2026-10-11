@@ -1309,7 +1309,7 @@ body.integration-modal-open { overflow: hidden; }
 /* Item reward rows */
 .reward-row {
   display: grid;
-  grid-template-columns: 1fr 100px auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 80px auto;
   gap: 0.5rem;
   align-items: end;
   margin-bottom: 0.5rem;
@@ -1376,3 +1376,7 @@ body.integration-modal-open { overflow: hidden; }
 }
 .vote-img-btn:disabled { cursor: not-allowed; }
 .vote-img-btn.voted-overlay { cursor: default; }
+
+@media (max-width: 600px) { .reward-row { grid-template-columns: 1fr 1fr; } }
+
+.reward-row .btn-icon { min-width: 44px; min-height: 44px; }

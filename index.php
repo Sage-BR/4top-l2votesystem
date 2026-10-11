@@ -58,10 +58,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
         $error = 'Token de segurança inválido. Recarregue a página.';
     } else {
-        $login    = trim(isset($_POST['login'])    ? $_POST['login']    : '');
-        $password =      isset($_POST['password']) ? $_POST['password'] : '';
+        $login    = is_string($_POST['login'] ?? null) ? trim($_POST['login']) : '';
+        $password =      is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
 
-        if (empty($login) || empty($password)) {
+        if ($login === '' || $password === '' || strlen($login) > 60 || strlen($password) > 4096) {
             $error = 'Preencha o login e a senha.';
         } else {
             // Rate limiting: arquivo em /tmp por IP (resiste a limpeza de cookies)
@@ -97,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$projects     = array('acis' => 'aCis', 'l2jorion' => 'L2JOrion', 'l2jmobius' => 'L2JMobius', 'l2jsunrise' => 'L2JSunrise', 'l2mythras' => 'L2Mythras', 'l2jlisvus' => 'L2JLisvus');
+$projects = array_map(function($project) { return $project['name']; }, gameProjects());
 $project_name = isset($projects[GAME_PROJECT]) ? $projects[GAME_PROJECT] : GAME_PROJECT;
 
 // Layout config

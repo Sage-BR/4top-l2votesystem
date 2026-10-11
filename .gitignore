@@ -1,2 +1,7 @@
-/tests/
+/tests/*
+!/tests/darkeden.php
 /reward_delivery.log
+
+/config.php
+/.installed
+/vote_api.log

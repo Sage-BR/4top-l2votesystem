@@ -117,11 +117,11 @@ function ensureVoteSchema() {
     $schemaLocked = false;
     try {
         $db = getDB();
-        if ((string)getSetting('schema_version', '0') === '7') return true;
+        if ((string)getSetting('schema_version', '0') === '8') return true;
         $schemaLock = $db->query("SELECT GET_LOCK('vs_schema_migration', 5)");
         $schemaLocked = (int)$schemaLock->fetchColumn() === 1;
         if (!$schemaLocked) return false;
-        if ((string)getSetting('schema_version', '0') === '7') return true;
+        if ((string)getSetting('schema_version', '0') === '8') return true;
         $tables = array(
             '4top_postback_refs' => "CREATE TABLE IF NOT EXISTS `4top_postback_refs` (
                 `id` INT NOT NULL AUTO_INCREMENT, `top_id` INT NOT NULL,
@@ -143,7 +143,7 @@ function ensureVoteSchema() {
                     `sort_order` INT DEFAULT 0, PRIMARY KEY (`id`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
             '4top_rewards' => "CREATE TABLE IF NOT EXISTS `4top_rewards` (
-                    `id` INT NOT NULL AUTO_INCREMENT, `item_id` INT NOT NULL,
+                    `id` INT NOT NULL AUTO_INCREMENT, `item_id` INT NOT NULL, `item_class` VARCHAR(40) NOT NULL DEFAULT '',
                     `quantity` INT NOT NULL DEFAULT 1, `description` VARCHAR(200) DEFAULT NULL,
                     PRIMARY KEY (`id`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
@@ -191,6 +191,9 @@ function ensureVoteSchema() {
             }
         }
 
+        // Não reinterpreta GoodsID antigos como ItemType: categoria vazia exige recadastro.
+        $rewardClass = $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '4top_rewards' AND COLUMN_NAME = 'item_class'");
+        if ((int)$rewardClass->fetchColumn() === 0) $db->exec("ALTER TABLE 4top_rewards ADD item_class VARCHAR(40) NOT NULL DEFAULT ''");
         $postbackColumn = $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '4top_postback_refs' AND COLUMN_NAME = 'postback_at'");
         if ((int)$postbackColumn->fetchColumn() === 0) {
             $db->exec('ALTER TABLE 4top_postback_refs ADD COLUMN postback_at DATETIME DEFAULT NULL');
@@ -233,7 +236,7 @@ function ensureVoteSchema() {
             }
             if ($additions) $db->exec("ALTER TABLE `$table` " . implode(', ', $additions));
         }
-        if (!setSetting('schema_version', '7')) return false;
+        if (!setSetting('schema_version', '8')) return false;
         return true;
     } catch (Throwable $e) {
         error_log('[VoteSystem] ensureVoteSchema error: ' . $e->getMessage());
@@ -578,7 +581,7 @@ function checkVotes($login, $ip, $hwid = '') {
  * Usa os votos confirmados armazenados na sessão por checkVotes().
  *
  * @param  string $login   Login da conta
- * @param  int    $objId   obj_Id do personagem escolhido
+ * @param  string $objId   Token do personagem DarkEden escolhido
  * @return array  ('status', 'msg')
  */
 function claimReward($login, $objId, $hwid = null) {
@@ -673,8 +676,9 @@ function claimReward($login, $objId, $hwid = null) {
         // Entrega rewards no personagem escolhido
         rewardDebug('items_delivery');
         $rewards = getRewards();
+        if (empty($rewards)) throw new RuntimeException('Nenhuma recompensa cadastrada.');
         if (!empty($rewards)) {
-            gameDeliverRewards($login, $rewards, $db, (int)$objId);
+            gameDeliverRewards($login, $rewards, $db, $objId);
         }
 
         // Marca logs como recompensados
@@ -703,14 +707,16 @@ function claimReward($login, $objId, $hwid = null) {
         }
         session_write_close();
 
-        return array('status' => 'ok', 'msg_key' => 'msg_reward_ok', 'msg' => '🎁 Recompensa entregue com sucesso!');
+        return array('status' => 'ok', 'msg_key' => 'msg_reward_ok', 'msg' => '🎁 Recompensa entregue na bag! Entre no jogo para conferir.');
 
     } catch (Throwable $e) {
         rewardDebug('delivery_exception', $e);
         if ($db->inTransaction()) $db->rollBack();
         error_log('[VoteSystem] claimReward error: ' . $e->getMessage());
+        if ($e instanceof DKInventoryException) return array('status' => 'error', 'msg_key' => $e->msgKey, 'msg' => $e->getMessage());
         return array('status' => 'error', 'msg_key' => 'msg_reward_error', 'msg' => '❌ Erro ao entregar recompensa. Tente novamente.');
     } finally {
+        if (function_exists('gameReleaseInventoryLocks')) gameReleaseInventoryLocks($db);
         foreach (array_reverse($heldLocks) as $claimLock) {
             rewardDebug('release_claim_lock');
             $lockStmt = $db->prepare('SELECT RELEASE_LOCK(?)');

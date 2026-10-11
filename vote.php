@@ -60,8 +60,8 @@ try {
                 echo json_encode(array('status' => 'error', 'msg_key' => 'msg_invalid_request', 'msg' => '❌ Requisição inválida.'));
                 exit;
             }
-            $objId = (int)(isset($_POST['obj_id']) ? $_POST['obj_id'] : 0);
-            if ($objId <= 0) {
+            $objId = isset($_POST['obj_id']) && is_string($_POST['obj_id']) ? $_POST['obj_id'] : '';
+            if (!gameParseCharToken($objId)) {
                 echo json_encode(array('status' => 'error', 'msg_key' => 'msg_select_char', 'msg' => '❌ Selecione um personagem.'));
                 exit;
             }

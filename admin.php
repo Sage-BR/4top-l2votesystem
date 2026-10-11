@@ -160,29 +160,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     elseif ($action === 'add_reward') {
-        $item_ids   = $_POST['item_id']     ?? array();
-        $quantities = $_POST['quantity']    ?? array();
-        $descs      = $_POST['description'] ?? array();
-
-        if (!is_array($item_ids)) $item_ids = array($item_ids);
-
-        $added = 0;
-        $stmt  = $db->prepare(
-            "INSERT INTO 4top_rewards (item_id, quantity, description) VALUES (?, ?, ?)"
-        );
-        for ($i = 0; $i < count($item_ids); $i++) {
-            $iid = (int)($item_ids[$i] ?? 0);
-            $qty = min(100000, max(1, (int)($quantities[$i] ?? 1)));
-            $dsc = trim($descs[$i] ?? '');
-            if ($iid > 0 && $iid <= 1000000) {
-                $stmt->execute(array($iid, $qty, $dsc ?: null));
-                $added++;
+        try {
+            $item_ids = $_POST['item_id'] ?? array();
+            $quantities = $_POST['quantity'] ?? array();
+            $descs = $_POST['description'] ?? array();
+            $classes = $_POST['item_class'] ?? array();
+            if (!is_array($item_ids) || !is_array($quantities) || !is_array($descs) || !is_array($classes) || !$item_ids || count($item_ids) > 100) throw new InvalidArgumentException('Lista de recompensas inválida.');
+            $rows = array();
+            foreach ($item_ids as $i => $value) {
+                $iid = filter_var($value, FILTER_VALIDATE_INT);
+                $qty = filter_var($quantities[$i] ?? null, FILTER_VALIDATE_INT);
+                $dsc = $descs[$i] ?? '';
+                $class = $classes[$i] ?? '';
+                if ($iid === false || $qty === false || !is_string($dsc) || !preg_match('/^.{0,200}$/us', trim($dsc))) throw new InvalidArgumentException('Categoria, ID, quantidade ou descrição inválidos.');
+                gameValidateReward($iid, $qty, $db, $class);
+                $rows[] = array($iid, $class, $qty, trim($dsc) ?: null);
             }
+            $db->beginTransaction();
+            $stmt = $db->prepare('INSERT INTO 4top_rewards (item_id, item_class, quantity, description) VALUES (?, ?, ?, ?)');
+            foreach ($rows as $row) $stmt->execute($row);
+            $db->commit();
+            $success = count($rows) . ' recompensa(s) adicionada(s)!';
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            $error = $e instanceof InvalidArgumentException ? $e->getMessage() : 'Não foi possível salvar as recompensas.';
         }
-        if ($added > 0) $success = $added . ' item(s) de reward adicionado(s)!';
-        else $error = 'Preencha pelo menos um Item ID válido.';
     }
-
     elseif ($action === 'remove_reward') {
         $id = (int)($_POST['id'] ?? 0);
         if ($id > 0) {
@@ -472,12 +475,20 @@ renderNav();
         <div id="rewards-container">
           <div class="reward-row">
             <div>
-              <label class="form-label" data-i18n="admin_reward_item_id">Item ID</label>
-              <input type="number" name="item_id[]" class="form-control" placeholder="ex: 57" min="1" required>
+              <label for="rewardClass1" class="form-label" data-i18n="admin_reward_category">Categoria</label>
+              <select id="rewardClass1" name="item_class[]" class="form-control" required>
+                <?php foreach (gameItemClasses() as $class): ?>
+                <option value="<?= e($class) ?>"><?= e($class) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div>
+              <label class="form-label" data-i18n="admin_reward_item_id">Item ID (ItemType)</label>
+              <input type="number" name="item_id[]" class="form-control" placeholder="ItemType" min="0" max="65535" required>
             </div>
             <div>
               <label class="form-label" data-i18n="admin_reward_qty">Quantidade</label>
-              <input type="number" name="quantity[]" class="form-control" placeholder="1" min="1" value="1" required>
+              <input type="number" name="quantity[]" class="form-control" placeholder="1" min="1" max="60" value="1" required>
             </div>
             <div style="display:flex;align-items:flex-end">
               <button type="button" class="btn-icon" onclick="addRewardRow()"
@@ -487,7 +498,7 @@ renderNav();
         </div>
 
         <div class="form-group" style="margin-top:.75rem">
-          <label class="form-label" data-i18n="admin_reward_name_lbl">Nome (Ex: "Adena")</label>
+          <label class="form-label" data-i18n="admin_reward_name_lbl">Nome do item (opcional)</label>
           <input type="text" name="description[]" id="firstDesc" class="form-control"
             data-i18n-placeholder="admin_reward_name_ph"
             placeholder="Nome do item para exibição">
@@ -510,7 +521,7 @@ renderNav();
         <table>
           <thead>
             <tr>
-              <th data-i18n="admin_reward_item_id">Item ID</th>
+              <th data-i18n="admin_reward_category">Categoria</th><th data-i18n="admin_reward_item_id">Item ID (ItemType)</th>
               <th data-i18n="col_qty">Qtd</th>
               <th data-i18n="col_item_name">Nome</th>
               <th></th>
@@ -519,7 +530,7 @@ renderNav();
           <tbody>
             <?php foreach ($rewards as $r): ?>
             <tr>
-              <td><code style="color:var(--gold)"><?= (int)$r['item_id'] ?></code></td>
+              <td><?= e($r['item_class'] ?: 'Recadastrar') ?></td><td><code style="color:var(--gold)"><?= (int)$r['item_id'] ?></code></td>
               <td style="color:var(--text-primary)">×<?= (int)$r['quantity'] ?></td>
               <td style="color:var(--text-dim)"><?= $r['description'] ? e($r['description']) : '—' ?></td>
               <td>
@@ -671,25 +682,32 @@ endforeach; ?>
 <script>
 var rewardRowCount = 1;
 
+var rewardRowCounter = 1;
+var rewardCategories = <?= json_encode(gameItemClasses(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 function addRewardRow() {
     rewardRowCount++;
     var container = document.getElementById('rewards-container');
     var row = document.createElement('div');
     row.className = 'reward-row';
     var t = window.vsI18n ? window.vsI18n.t : function(k){ return k; };
+    var categoryOptions = rewardCategories.map(function(name) { return '<option value="' + name + '">' + name + '</option>'; }).join('');
     row.innerHTML =
+        '<div><label for="rewardClass1" class="form-label" data-i18n="admin_reward_category">' + t('admin_reward_category') + '</label><select id="rewardClass1" name="item_class[]" class="form-control" required>' + categoryOptions + '</select></div>' +
         '<div>' +
             '<label class="form-label" data-i18n="admin_reward_item_id">' + t('admin_reward_item_id') + '</label>' +
-            '<input type="number" name="item_id[]" class="form-control" placeholder="ex: 57" min="1" required>' +
+            '<input type="number" name="item_id[]" class="form-control" placeholder="ItemType" min="0" max="65535" required>' +
         '</div>' +
         '<div>' +
             '<label class="form-label" data-i18n="admin_reward_qty">' + t('admin_reward_qty') + '</label>' +
-            '<input type="number" name="quantity[]" class="form-control" placeholder="1" min="1" value="1" required>' +
+            '<input type="number" name="quantity[]" class="form-control" placeholder="1" min="1" max="60" value="1" required>' +
         '</div>' +
         '<div style="display:flex;flex-direction:column;justify-content:flex-end;gap:.3rem">' +
             '<label class="form-label" style="visibility:hidden">.</label>' +
             '<button type="button" class="btn-icon" onclick="removeRewardRow(this)" title="' + t('admin_btn_remove_row') + '">✕</button>' +
         '</div>';
+    var categorySelect = row.querySelector('select');
+    categorySelect.id = 'rewardClass' + (++rewardRowCounter);
+    row.querySelector('[data-i18n="admin_reward_category"]').htmlFor = categorySelect.id;
     container.appendChild(row);
 }
 

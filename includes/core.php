@@ -1,228 +1,72 @@
 <?php
-/**
- * VoteSystem — Core
- * Compatível: aCis | L2JOrion | L2JMobius | L2JLisvus
- */
+/** Integração DarkEden: contas, personagens e entrega direta na bag. */
+if (!defined('INSTALLED')) { header('Location: install.php'); exit; }
+require_once __DIR__ . '/game_projects.php';
 
-if (!defined('INSTALLED')) {
-    header('Location: install.php');
-    exit;
-}
-
-// ── Hash de senha ─────────────────────────────────────────────────────────────
-//
-// aCis ≤ 408 / L2JOrion / L2JMobius → base64_encode( sha1($pass, true) )
-// aCis 409+                          → BCrypt (password_verify nativo do PHP)
-//
-// O sistema detecta automaticamente pelo comprimento do hash armazenado:
-//   BCrypt  → sempre começa com '$2' e tem 60 chars
-//   SHA1B64 → 28 chars
-//
-function gameVerifyPassword($plainPassword, $storedHash) {
-    // BCrypt — aCis 409+
-    if (strlen($storedHash) === 60 && strncmp($storedHash, '$2', 2) === 0) {
-        return password_verify($plainPassword, $storedHash);
+// Reprodução do hash legado MySQL 3.23, sem depender de funções removidas do banco.
+function gameOldPassword($password) {
+    if (PHP_INT_SIZE < 8) throw new RuntimeException('O hash legado DK exige PHP de 64 bits.');
+    $nr = 1345345333; $nr2 = 0x12345671; $add = 7;
+    for ($i = 0, $length = strlen($password); $i < $length; $i++) {
+        $c = ord($password[$i]);
+        if ($c === 32 || $c === 9) continue;
+        $nr = ($nr ^ ((($nr & 63) + $add) * $c + ($nr << 8))) & 0xffffffff;
+        $nr2 = ($nr2 + (($nr2 << 8) ^ $nr)) & 0xffffffff;
+        $add += $c;
     }
-    // SHA1 Base64 — aCis ≤408, L2JOrion, L2JMobius
-    return hash_equals((string)$storedHash, base64_encode(sha1($plainPassword, true)));
+    return $password === '' ? '' : sprintf('%08x%08x', $nr & 0x7fffffff, $nr2 & 0x7fffffff);
 }
-
-// ── Conta do jogo ─────────────────────────────────────────────────────────────
-//
-// aCis / L2JOrion / L2JLisvus → access_level  (snake_case)
-// L2JMobius / L2JSunrise      → accessLevel   (camelCase)
-//
+function gameVerifyPassword($plainPassword, $storedHash) {
+    if (!is_string($plainPassword) || !is_string($storedHash) || $storedHash === '') return false;
+    switch (gamePasswordMode()) {
+        case 'plain': return hash_equals($storedHash, $plainPassword);
+        case 'mysql_old': return hash_equals(strtolower($storedHash), gameOldPassword($plainPassword));
+        case 'mysql_password': return hash_equals(strtoupper($storedHash), '*' . strtoupper(sha1(sha1($plainPassword, true))));
+    }
+    return false;
+}
 function gameGetAccount($login) {
-    $col  = in_array(GAME_PROJECT, array('l2jmobius', 'l2jsunrise')) ? 'accessLevel' : 'access_level';
-    $db   = getDB();
-    $stmt = $db->prepare(
-        "SELECT login, password, `{$col}` AS access_level FROM accounts WHERE login = ? LIMIT 1"
-    );
+    gamePasswordMode();
+    $stmt = getDB()->prepare('SELECT PlayerID AS login, Password AS password, Access AS account_access FROM Player WHERE PlayerID = ? LIMIT 1');
     $stmt->execute(array($login));
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $row ?: false;
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: false;
 }
-
 function gameLogin($login, $password) {
     $account = gameGetAccount($login);
-    if (!$account) return false;
-    if (empty($account['password'])) return false;
-    if (!gameVerifyPassword($password, $account['password'])) return false;
-
-    return array(
-        'login'        => $account['login'],
-        'access_level' => (int)$account['access_level'],
-    );
+    if (!$account || $account['account_access'] !== 'ALLOW' || !gameVerifyPassword($password, $account['password'])) return false;
+    $admins = defined('DK_ADMIN_ACCOUNTS') && is_array(DK_ADMIN_ACCOUNTS) ? DK_ADMIN_ACCOUNTS : array();
+    return array('login' => $account['login'], 'access_level' => in_array($account['login'], $admins, true) ? 1 : 0);
 }
-
-// ── Personagem ────────────────────────────────────────────────────────────────
-//
-// aCis / L2JOrion / L2JLisvus → obj_Id,  account_name, deletetime, lastAccess
-// L2JMobius / L2JSunrise      → charId,  account_name, deletetime, lastAccess
-//
-function _charIdCol() {
-    return in_array(GAME_PROJECT, array('l2jmobius', 'l2jsunrise')) ? 'charId' : 'obj_Id';
+function gameCharToken($race, $name) { return base64_encode($race . ':' . $name); }
+function gameParseCharToken($token) {
+    if (!is_string($token) || strlen($token) > 256) return false;
+    $raw = base64_decode($token, true);
+    if ($raw === false || base64_encode($raw) !== $token) return false;
+    $parts = explode(':', $raw, 2);
+    if (count($parts) !== 2 || !in_array($parts[0], array('Slayer', 'Vampire', 'Ousters'), true) || $parts[1] === '' || strlen($parts[1]) > 40) return false;
+    return array('race' => $parts[0], 'name' => $parts[1]);
 }
-
 function gameGetChars($login) {
-    $col  = _charIdCol();
-    $db   = getDB();
-    $stmt = $db->prepare(
-        "SELECT `{$col}` AS obj_Id, char_name FROM characters
-         WHERE account_name = ?
-           AND COALESCE(deletetime, 0) = 0
-         ORDER BY lastAccess DESC"
-    );
-    $stmt->execute(array($login));
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Slayer é o cadastro principal; Race aponta para os dados da raça atual.
+    $stmt = getDB()->prepare("SELECT Name, Race FROM Slayer WHERE PlayerID = ? AND Active = 'ACTIVE' ORDER BY Slot, Name");
+    $stmt->execute(array($login)); $rows = $stmt->fetchAll(PDO::FETCH_ASSOC); $chars = array();
+    $races = array('SLAYER' => 'Slayer', 'VAMPIRE' => 'Vampire', 'OUSTERS' => 'Ousters');
+    foreach ($rows as $row) {
+        $race = $races[$row['Race']] ?? null;
+        if (!$race) continue;
+        $token = gameCharToken($race, $row['Name']);
+        if (gameCharBelongsTo($login, $token)) $chars[] = array('obj_Id' => $token, 'char_name' => $row['Name'] . ' (' . $race . ')');
+    }
+    return $chars;
 }
-
-function gameCharBelongsTo($login, $objId) {
-    $col  = _charIdCol();
-    $db   = getDB();
-    $stmt = $db->prepare(
-        "SELECT `{$col}` FROM characters
-         WHERE account_name = ? AND `{$col}` = ? AND COALESCE(deletetime, 0) = 0
-         LIMIT 1"
-    );
-    $stmt->execute(array($login, (int)$objId));
+function gameCharBelongsTo($login, $token) {
+    $char = gameParseCharToken($token);
+    if (!$char) return false;
+    $stmt = getDB()->prepare("SELECT c.Name FROM `{$char['race']}` c JOIN Slayer s ON s.Name = c.Name AND s.PlayerID = c.PlayerID WHERE c.PlayerID = ? AND c.Name = ? AND c.Active = 'ACTIVE' AND s.Active = 'ACTIVE' AND s.Race = ? LIMIT 1");
+    $stmt->execute(array($login, $char['name'], strtoupper($char['race'])));
     return (bool)$stmt->fetch();
 }
-
-// ── Entrega de reward ─────────────────────────────────────────────────────────
-//
-// Todos os projetos entregam direto na tabela items.
-//
-// Schema por projeto:
-//   aCis / L2JOrion  → owner_id, object_id, item_id, count, enchant_level,
-//                       loc, loc_data, custom_type1, custom_type2, mana_left
-//                       (aCis atual também tem time DEFAULT 0; omitido no INSERT
-//                       para continuar compatível com schemas aCis anteriores)
-//   L2JMobius /
-//   L2JSunrise       → idem + time
-//   L2JLisvus        → owner_id, object_id, item_id, count, enchant_level,
-//                       loc, loc_data, custom_type1, custom_type2
-//                       (sem mana_left, sem time)
-//
-function gameDeliverRewards($login, array $rewards, $db, $objId = null) {
-    if (empty($rewards)) return true;
-    return _deliverRewardsGame($login, $rewards, $db, $objId);
-}
-
-function _deliverRewardsGame($login, array $rewards, $db, $objId = null) {
-    $ownerId = _resolveOwnerId($login, $objId, $db);
-    if ($ownerId === null) return false;
-
-    $maxId = _nextObjectId($db);
-
-    switch (GAME_PROJECT) {
-        case 'l2jmobius':
-        case 'l2jsunrise':
-            $ins = $db->prepare(
-                "INSERT INTO items
-                    (owner_id, object_id, item_id, count, enchant_level,
-                     loc, loc_data, custom_type1, custom_type2, mana_left, time)
-                 VALUES (?, ?, ?, ?, 0, 'INVENTORY', 0, 0, 0, -1, 0)"
-            );
-            break;
-
-        case 'l2jlisvus':
-            $ins = $db->prepare(
-                "INSERT INTO items
-                    (owner_id, object_id, item_id, count, enchant_level,
-                     loc, loc_data, custom_type1, custom_type2)
-                 VALUES (?, ?, ?, ?, 0, 'INVENTORY', 0, 0, 0)"
-            );
-            break;
-
-        case 'l2mythras':
-            // items do L2Mythras não tem mana_left nem time
-            // tem life_time, augmentation_id, attribute_* e outros campos NOT NULL
-            $ins = $db->prepare(
-                "INSERT INTO items
-                    (object_id, owner_id, item_id, count, enchant_level,
-                     loc, loc_data, life_time, augmentation_id,
-                     attribute_fire, attribute_water, attribute_wind,
-                     attribute_earth, attribute_holy, attribute_unholy,
-                     custom_type1, custom_type2, custom_flags,
-                     agathion_energy, visual_item_id)
-                 VALUES (?, ?, ?, ?, 0, 'INVENTORY', 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)"
-            );
-            break;
-
-        case 'l2jserver':
-            // L2J4TeamC2 - usa time_of_use ao invés de mana_left
-            $ins = $db->prepare(
-                "INSERT INTO items
-                    (owner_id, object_id, item_id, count, enchant_level,
-                     loc, loc_data, custom_type1, custom_type2, time_of_use)
-                 VALUES (?, ?, ?, ?, 0, 'INVENTORY', 0, 0, 0, 0)"
-            );
-            break;
-
-        default: // acis, l2jorion
-            $ins = $db->prepare(
-                "INSERT INTO items
-                    (owner_id, object_id, item_id, count, enchant_level,
-                     loc, loc_data, custom_type1, custom_type2, mana_left)
-                 VALUES (?, ?, ?, ?, 0, 'INVENTORY', 0, 0, 0, -1)"
-            );
-            break;
-    }
-
-    try {
-        foreach ($rewards as $r) {
-            // L2Mythras tem object_id antes de owner_id no INSERT
-            if (GAME_PROJECT === 'l2mythras') {
-                $ins->execute(array(++$maxId, $ownerId, (int)$r['item_id'], (int)$r['quantity']));
-            } else {
-                $ins->execute(array($ownerId, ++$maxId, (int)$r['item_id'], (int)$r['quantity']));
-            }
-        }
-    } finally {
-        _releaseObjectIdLock($db);
-    }
-    return true;
-}
-
-// ── Helpers internos ──────────────────────────────────────────────────────────
-
-function _resolveOwnerId($login, $objId, $db) {
-    if ($objId !== null) return (int)$objId;
-    $chars = gameGetChars($login);
-    // gameGetChars já retorna charId ou obj_Id mapeado como obj_Id
-    return !empty($chars) ? (int)$chars[0]['obj_Id'] : null;
-}
-
-function _nextObjectId($db) {
-    // Usa GET_LOCK para serializar geração de object_id (evita race em SELECT MAX)
-    $lock = $db->query("SELECT GET_LOCK('vs_nextObjectId', 5)");
-    $acquired = (int)$lock->fetchColumn() === 1;
-    $lock->closeCursor();
-    if (!$acquired) throw new RuntimeException('Não foi possível obter a trava de IDs dos itens.');
-    try {
-        $stmt = $db->query("SELECT COALESCE(MAX(object_id), 268435456) FROM items FOR UPDATE");
-        $id = (int)$stmt->fetchColumn();
-        $stmt->closeCursor();
-    } catch (Throwable $e) {
-        _releaseObjectIdLock($db);
-        throw $e;
-    }
-    // lock liberado após commit/rollback pelo chamador; fallback libera aqui se não estiver em transação
-    if (!$db->inTransaction()) {
-        _releaseObjectIdLock($db);
-    }
-    return $id;
-}
-
-function _releaseObjectIdLock($db) {
-    $stmt = $db->query("SELECT RELEASE_LOCK('vs_nextObjectId')");
-    $stmt->fetchColumn();
-    $stmt->closeCursor();
-}
-
-// ── IP do cliente ─────────────────────────────────────────────────────────────
-
+require_once __DIR__ . '/inventory.php';
 function _ipValid($ip) {
     $ip = trim((string)$ip);
     if (preg_match('/^::ffff:(\\d+\\.\\d+\\.\\d+\\.\\d+)$/i', $ip, $m)) {

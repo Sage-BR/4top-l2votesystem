@@ -24,29 +24,23 @@ if (empty($_SESSION['install_token'])) {
 $install_token = $_SESSION['install_token'];
 
 function verifyToken() {
-    $sent = isset($_POST['_token']) ? $_POST['_token'] : (isset($_GET['_token']) ? $_GET['_token'] : '');
+    $sent = $_POST['_token'] ?? $_GET['_token'] ?? '';
+    if (!is_string($sent)) $sent = '';
     if (!hash_equals($_SESSION['install_token'], $sent)) {
         http_response_code(403);
         exit('Sessao invalida. <a href="install.php">Reiniciar instalacao</a>.');
     }
 }
 
-$valid_projects = array('acis', 'l2jserver', 'l2jorion', 'l2jmobius', 'l2jsunrise', 'l2mythras', 'l2jlisvus');
-
-$project_info = array(
-    'acis'       => array('name' => 'aCis',       'icon' => '&#9876;&#65039;',   'desc' => 'aCis 362~408 (SHA1 Base64) e 409+ (BCrypt) - detectado automaticamente', 'pass' => 'SHA1 / BCrypt'),
-    'l2jserver'  => array('name' => 'L2JServer',  'icon' => '&#128309;',         'desc' => 'L2JServer / L2J4TeamC2 - reward direto no items', 'pass' => 'SHA1 Base64'),
-    'l2jorion'   => array('name' => 'L2JOrion',   'icon' => '&#128737;&#65039;', 'desc' => 'L2JOrion - reward direto no items', 'pass' => 'SHA1 Base64'),
-    'l2jmobius'  => array('name' => 'L2JMobius',  'icon' => '&#128302;',         'desc' => 'L2JMobius (all Chronicle) - reward direto no items', 'pass' => 'SHA1 Base64'),
-    'l2jsunrise' => array('name' => 'L2JSunrise', 'icon' => '&#127749;',         'desc' => 'L2JSunrise - reward direto no items', 'pass' => 'SHA1 Base64'),
-    'l2mythras'  => array('name' => 'L2Mythras',  'icon' => '&#9889;',           'desc' => 'L2Mythras - reward direto no items', 'pass' => 'SHA1 Base64'),
-    'l2jlisvus'  => array('name' => 'L2JLisvus',  'icon' => '&#9917;&#65039;',   'desc' => 'L2JLisvus C4 - reward direto no items', 'pass' => 'SHA1 Base64'),
-);
+require_once __DIR__ . '/includes/game_projects.php';
+$project_info = gameProjects();
+$valid_projects = array_keys($project_info);
 
 $step  = isset($_SESSION['install_step']) ? (int)$_SESSION['install_step'] : 1;
 $error = '';
 
-if (file_exists(__DIR__ . '/config.php')) {
+if (file_exists(__DIR__ . '/.installed') || (file_exists(__DIR__ . '/config.php')
+    && ((int)($_SESSION['install_step'] ?? 0) !== 3 || ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'create_tables')))) {
     header('Location: index.php');
     exit;
 }
@@ -54,14 +48,22 @@ if (file_exists(__DIR__ . '/config.php')) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) ? $_POST['action'] : '') === 'save_db') {
     verifyToken();
 
-    $db_host = trim(isset($_POST['db_host']) ? $_POST['db_host'] : 'localhost');
-    $db_user = trim(isset($_POST['db_user']) ? $_POST['db_user'] : '');
-    $db_pass = isset($_POST['db_pass']) ? $_POST['db_pass'] : '';
-    $db_name = trim(isset($_POST['db_name']) ? $_POST['db_name'] : '');
-    $project = trim(isset($_POST['project']) ? $_POST['project'] : 'acis');
-    if (!in_array($project, $valid_projects, true)) $project = 'acis';
+    $db_host = is_string($_POST['db_host'] ?? null) ? trim($_POST['db_host']) : 'localhost';
+    $db_user = is_string($_POST['db_user'] ?? null) ? trim($_POST['db_user']) : '';
+    $db_pass = is_string($_POST['db_pass'] ?? null) ? $_POST['db_pass'] : '';
+    $db_name = is_string($_POST['db_name'] ?? null) ? trim($_POST['db_name']) : '';
+    $project = is_string($_POST['project'] ?? null) ? trim($_POST['project']) : 'darkeden_master';
+    if (!in_array($project, $valid_projects, true)) $project = 'darkeden_master';
+    $admin_login = is_string($_POST['admin_login'] ?? null) ? trim($_POST['admin_login']) : '';
+    $password_mode = is_string($_POST['password_mode'] ?? null) ? $_POST['password_mode'] : '';
+    if ($password_mode === '') $password_mode = $project_info[$project]['password_mode'];
+    $id_step = filter_var($_POST['id_step'] ?? null, FILTER_VALIDATE_INT, array('options' => array('min_range' => 2, 'max_range' => 256)));
+    $id_slot = filter_var($_POST['id_slot'] ?? null, FILTER_VALIDATE_INT, array('options' => array('min_range' => 0, 'max_range' => 255)));
 
-    if ($db_user === '' || $db_name === '') {
+    if ($admin_login === '' || strlen($admin_login) > 60 || $id_step === false || $id_slot === false || $id_slot >= $id_step || ($_POST['id_partition_confirmed'] ?? '') !== '1' || !in_array($password_mode, array('plain', 'mysql_old', 'mysql_password'), true)) {
+        $error = 'Informe a conta administradora e confirme a sequência de IDs reservada, com um formato de senha válido.';
+        $step = 2;
+    } elseif ($db_user === '' || $db_name === '') {
         $error = 'Usuario e nome do banco sao obrigatorios.';
         $step  = 2;
     } elseif (!preg_match('/^[a-zA-Z0-9.\-]+$/', $db_host)) {
@@ -78,6 +80,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) ? $_POST['
                     PDO::ATTR_TIMEOUT => 5,
                 )
             );
+            $account = $pdo->prepare("SELECT PlayerID FROM Player WHERE PlayerID = ? AND Access = 'ALLOW' LIMIT 1");
+            $account->execute(array($admin_login));
+            $admin_canonical = $account->fetchColumn();
+            if ($admin_canonical === false) throw new RuntimeException('Conta administradora inexistente ou bloqueada no jogo.');
+            $admin_login = $admin_canonical;
+            foreach (array('Player', 'Slayer', 'Vampire', 'Ousters') as $table) {
+                $pdo->query("SELECT 1 FROM `$table` LIMIT 0");
+                $engine = $pdo->prepare('SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?');
+                $engine->execute(array($table));
+                if (strcasecmp((string)$engine->fetchColumn(), 'InnoDB') !== 0) throw new RuntimeException('Player e tabelas de personagens precisam usar InnoDB. As categorias de recompensa também serão verificadas antes da entrega.');
+            }
             unset($pdo);
 
             $cfg  = "<?php\n";
@@ -88,6 +101,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) ? $_POST['
             $cfg .= "define('DB_PASS',      " . var_export($db_pass, true) . ");\n";
             $cfg .= "define('DB_NAME',      " . var_export($db_name, true) . ");\n";
             $cfg .= "define('GAME_PROJECT', " . var_export($project, true) . ");\n";
+            $cfg .= "define('DK_PASSWORD_MODE', " . var_export($password_mode, true) . ");\n";
+            $cfg .= "define('DK_ADMIN_ACCOUNTS', " . var_export(array($admin_login), true) . ");\n";
+            $cfg .= "define('DK_ITEM_ID_STEP', " . var_export($id_step, true) . ");\n";
+            $cfg .= "define('DK_ITEM_ID_SLOT', " . var_export($id_slot, true) . ");\n";
             $cfg .= "define('VS_ANTICHEAT_ENABLED', true);\n";
             $cfg .= "define('VS_ANTICHEAT_RISK_BLOCK', 70);\n";
             $cfg .= "define('VS_ANTICHEAT_CACHE_SEC', 900);\n";
@@ -115,6 +132,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) ? $_POST['
         'db_user' => $db_user,
         'db_name' => $db_name,
         'project' => $project,
+        'admin_login' => $admin_login,
+        'password_mode' => $password_mode,
+        'id_step' => $id_step,
+        'id_slot' => $id_slot,
     );
 }
 
@@ -151,6 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) ? $_POST['
                 "CREATE TABLE IF NOT EXISTS `4top_rewards` (
                     `id` INT NOT NULL AUTO_INCREMENT,
                     `item_id` INT NOT NULL,
+                    `item_class` VARCHAR(40) NOT NULL DEFAULT '',
                     `quantity` INT NOT NULL DEFAULT 1,
                     `description` VARCHAR(200) DEFAULT NULL,
                     PRIMARY KEY (`id`)
@@ -198,6 +220,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) ? $_POST['
             );
             foreach ($sqls as $sql) $pdo->exec($sql);
 
+            if (file_put_contents(__DIR__ . '/.installed', 'DarkEden', LOCK_EX) === false) throw new RuntimeException('Não foi possível criar o marcador de instalação.');
             $_SESSION['install_step'] = 4;
             $step = 4;
 
@@ -219,14 +242,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $step = 1;
     } elseif ($get_step === 2 && isset($_GET['project'])) {
         verifyToken();
-        $proj = in_array($_GET['project'], $valid_projects, true) ? $_GET['project'] : 'acis';
+        $proj = in_array($_GET['project'], $valid_projects, true) ? $_GET['project'] : 'darkeden_master';
         $_SESSION['install_step']    = 2;
         $_SESSION['install_project'] = $proj;
         $step = 2;
     }
 }
 
-$installed_project = isset($_SESSION['install_project']) ? $_SESSION['install_project'] : 'acis';
+$installed_project = isset($_SESSION['install_project']) ? $_SESSION['install_project'] : 'darkeden_master';
 $form              = isset($_SESSION['install_form']) ? $_SESSION['install_form'] : array();
 
 function t_install($key) {
@@ -301,14 +324,14 @@ $tables_base = array(
       <?php endif; ?>
 
       <?php if ($step === 1): ?>
-      <div class="card-title" data-i18n="install_s1_title">&#9881; Selecione o Projeto L2J</div>
+      <div class="card-title" data-i18n="install_s1_title">&#9881; Selecione o Projeto DarkEden</div>
       <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:1.5rem;line-height:1.6;" data-i18n="install_s1_desc">
         Escolha o emulador do servidor. Isso define como as senhas sao verificadas e como os rewards sao entregues.
       </p>
       <div class="project-grid" id="projectGrid">
         <?php foreach ($project_info as $key => $info): ?>
         <div class="project-option">
-          <input type="radio" name="project" id="proj_<?= $key ?>" value="<?= $key ?>" <?= $key === 'acis' ? 'checked' : '' ?>>
+          <input type="radio" name="project" id="proj_<?= $key ?>" value="<?= $key ?>" <?= $key === 'darkeden_master' ? 'checked' : '' ?>>
           <label for="proj_<?= $key ?>">
             <span class="proj-icon"><?= $info['icon'] ?></span>
             <span class="proj-name"><?= $info['name'] ?></span>
@@ -360,7 +383,31 @@ $tables_base = array(
         </div>
         <div class="form-group">
           <label class="form-label" data-i18n="install_s2_dbname">Nome do Banco (Database)</label>
-          <input type="text" name="db_name" class="form-control" value="<?= htmlspecialchars(isset($form['db_name']) ? $form['db_name'] : '') ?>" placeholder="l2jdb" required autocomplete="off">
+          <input type="text" name="db_name" class="form-control" value="<?= htmlspecialchars(isset($form['db_name']) ? $form['db_name'] : '') ?>" placeholder="DARKEDEN" required autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="admin_login">Conta administradora do painel</label>
+          <input id="admin_login" type="text" name="admin_login" class="form-control" value="<?= htmlspecialchars($form['admin_login'] ?? '') ?>" maxlength="15" required autocomplete="off">
+        </div>
+        <div class="alert alert-info">A entrega na bag exige uma sequência exclusiva de IDs. Exemplo: configure todos os gameservers com <strong>ServerCount 2</strong> e <strong>ServerID 0</strong>, reinicie-os e reserve o slot 1 ao painel. Em servidores múltiplos, reserve um slot livre e use o mesmo ServerCount em todos.</div>
+        <div class="form-group">
+          <label class="form-label" for="id_step">ServerCount configurado nos gameservers</label>
+          <input id="id_step" type="number" name="id_step" class="form-control" value="<?= htmlspecialchars((string)($form['id_step'] ?? 2)) ?>" min="2" max="256" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="id_slot">Slot reservado exclusivamente ao painel</label>
+          <input id="id_slot" type="number" name="id_slot" class="form-control" value="<?= htmlspecialchars((string)($form['id_slot'] ?? 1)) ?>" min="0" max="255" required>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" name="id_partition_confirmed" value="1" required> Confirmei o ServerCount e nenhum gameserver usa o slot reservado ao painel.</label>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password_mode">Formato de senha da conta</label>
+          <select id="password_mode" name="password_mode" class="form-control">
+            <?php foreach (array('plain' => 'Senha direta', 'mysql_old' => 'MySQL OLD_PASSWORD (DB_VERSION 4)', 'mysql_password' => 'MySQL PASSWORD (4.1+)') as $mode => $label): ?>
+            <option value="<?= $mode ?>" <?= ($form['password_mode'] ?? $project_info[$installed_project]['password_mode']) === $mode ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
+            <?php endforeach; ?>
+          </select>
         </div>
         <div style="display:flex;gap:.75rem;margin-top:1rem;">
           <a href="install.php?step=1" class="btn btn-ghost" style="flex:0 0 auto;" data-i18n="install_s2_back">&lsaquo; Voltar</a>
@@ -387,7 +434,7 @@ $tables_base = array(
         <?php endforeach; ?>
       </ul>
       <div class="alert alert-info" style="font-size:.8rem;margin-bottom:1rem;" data-i18n="install_s3_info">
-        &#10004; Rewards sao inseridos diretamente na tabela <code>items</code> do jogo &mdash; sem mod Java ou cron necessario.
+        &#10004; Recompensas são inseridas diretamente na bag do personagem. A conta precisa estar desconectada do jogo.
       </div>
       <form method="POST" action="install.php">
         <input type="hidden" name="action" value="create_tables">
@@ -405,12 +452,12 @@ $tables_base = array(
         </h2>
         <p style="color:var(--text-secondary);font-size:.9rem;margin-bottom:1.75rem;line-height:1.6;" data-i18n="install_s4_desc">
           O VoteSystem esta pronto.<br>
-          Faca login com uma conta que tenha <strong style="color:var(--gold)">access_level &ge; 1</strong> para configurar tops e rewards.
+          Faca login com <strong style="color:var(--gold)">a conta administradora configurada</strong> para configurar tops e rewards.
         </p>
         <div class="alert alert-info" style="text-align:left;margin-bottom:1.25rem;font-size:.8rem;line-height:1.6;">
           <strong data-i18n="install_s4_reward_title">&#10004; Entrega de Reward:</strong><br>
-          <span data-i18n="install_s4_reward_desc">Os itens sao inseridos diretamente em <code>items</code> no personagem escolhido.</span><br>
-          <span style="color:var(--text-dim)" data-i18n="install_s4_reward_sub">Nenhum mod Java ou cron necessario.</span>
+          <span data-i18n="install_s4_reward_desc">Os itens são entregues diretamente na bag do personagem escolhido.</span><br>
+          <span style="color:var(--text-dim)" data-i18n="install_s4_reward_sub">Entre no jogo após coletar para conferir a bag.</span>
         </div>
         <div class="alert alert-success" style="text-align:left;margin-bottom:1.5rem;font-size:.8rem;">
           <strong>&#128465; install.php removido automaticamente.</strong><br>
