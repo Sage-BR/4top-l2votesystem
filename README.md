@@ -2,6 +2,19 @@
 
 Painel de votação para servidores de **Lineage 2**. O jogador entra com a conta do jogo, verifica os votos e escolhe o personagem que receberá os itens. A entrega grava diretamente no banco do jogo, sem mod Java ou cron.
 
+## Compatibilidade com jogos
+
+Cada jogo tem uma versão própria do VoteSystem. Escolha a branch correspondente antes de instalar:
+
+| Jogo | Branch / acesso | Compatibilidade |
+|---|---|---|
+| **Lineage 2** | [main](https://github.com/Sage-BR/4top-l2votesystem/tree/main) | aCis, L2JOrion, L2JMobius, L2JSunrise, L2Mythras, L2JLisvus e L2J4TeamC2; veja os schemas abaixo. |
+| **DarkEden** | [DarkEden](https://github.com/Sage-BR/4top-l2votesystem/tree/DarkEden) | Perfis OpenDarkEden (`darkeden_master`) e DarkEden V2 (`darkeden_v2`), com autenticação nas contas do jogo e entrega de recompensas diretamente na bag do personagem. |
+
+Na versão DarkEden, a recompensa é configurada pela categoria do item, `ItemType` e quantidade. A entrega exige conta desconectada, espaço na bag, tabelas InnoDB e configuração de IDs coordenada com o gameserver. Consulte o [README da branch DarkEden](https://github.com/Sage-BR/4top-l2votesystem/blob/DarkEden/README.md) antes de instalar.
+
+A adaptação DarkEden passou por testes isolados; a integração com o banco e o cliente de um servidor real ainda precisa ser validada. O perfil OpenDarkEden não tem classificação V2/V3 confirmada. Forks com schemas personalizados exigem comparação antes do uso.
+
 ## Recursos
 
 - Oito tops disponíveis, com **4TOP obrigatório**, cadastrado primeiro e mantido ativo.
