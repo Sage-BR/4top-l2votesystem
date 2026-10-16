@@ -269,6 +269,7 @@ renderNav();
 
   <div class="admin-grid">
 
+    <div class="admin-config-stack">
     <!-- ── Add Top ── -->
     <div class="card">
       <div class="card-title" data-i18n="admin_add_top_title">➕ Adicionar Site de TOP</div>
@@ -353,8 +354,53 @@ renderNav();
       </form>
     </div>
 
-    <!-- ── Tops List ── -->
+    <!-- ── Add Rewards ── -->
     <div class="card">
+      <div class="card-title" data-i18n="admin_reward_cfg_title">🎁 Configurar Rewards por Voto</div>
+
+      <p style="font-size:.82rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.5" data-i18n="admin_reward_cfg_desc">
+        Adicione os itens que serão entregues ao jogador a cada voto.
+        Você pode adicionar múltiplos itens de uma vez.
+      </p>
+
+      <form method="POST" action="admin.php" id="rewardForm">
+        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+        <input type="hidden" name="action" value="add_reward">
+
+        <div id="rewards-container">
+          <div class="reward-row">
+            <div>
+              <label class="form-label" data-i18n="admin_reward_item_id">Item ID</label>
+              <input type="number" name="item_id[]" class="form-control" placeholder="ex: 57" min="1" required>
+            </div>
+            <div>
+              <label class="form-label" data-i18n="admin_reward_qty">Quantidade</label>
+              <input type="number" name="quantity[]" class="form-control" placeholder="1" min="1" value="1" required>
+            </div>
+            <div style="display:flex;align-items:flex-end">
+              <button type="button" class="btn-icon" onclick="addRewardRow()"
+                data-i18n-title="admin_btn_add_more" title="Adicionar mais">＋</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:.75rem">
+          <label class="form-label" data-i18n="admin_reward_name_lbl">Nome (Ex: "Adena")</label>
+          <input type="text" name="description[]" id="firstDesc" class="form-control"
+            data-i18n-placeholder="admin_reward_name_ph"
+            placeholder="Nome do item para exibição">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-full" style="margin-top:1rem" data-i18n="admin_btn_save_rewards">
+          ✓ Salvar Rewards
+        </button>
+      </form>
+    </div>
+
+    </div>
+
+    <!-- ── Tops List ── -->
+    <div class="card admin-tops-panel">
       <div class="card-title"><span data-i18n="admin_tops_list_title">🏆 Tops Cadastrados</span> (<?= count($tops) ?>)</div>
 
       <?php if (empty($tops)): ?>
@@ -456,51 +502,11 @@ renderNav();
       <?php endif; ?>
     </div>
 
-    <!-- ── Add Rewards ── -->
-    <div class="card">
-      <div class="card-title" data-i18n="admin_reward_cfg_title">🎁 Configurar Rewards por Voto</div>
+  </div><!-- .admin-grid -->
 
-      <p style="font-size:.82rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.5" data-i18n="admin_reward_cfg_desc">
-        Adicione os itens que serão entregues ao jogador a cada voto.
-        Você pode adicionar múltiplos itens de uma vez.
-      </p>
-
-      <form method="POST" action="admin.php" id="rewardForm">
-        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-        <input type="hidden" name="action" value="add_reward">
-
-        <div id="rewards-container">
-          <div class="reward-row">
-            <div>
-              <label class="form-label" data-i18n="admin_reward_item_id">Item ID</label>
-              <input type="number" name="item_id[]" class="form-control" placeholder="ex: 57" min="1" required>
-            </div>
-            <div>
-              <label class="form-label" data-i18n="admin_reward_qty">Quantidade</label>
-              <input type="number" name="quantity[]" class="form-control" placeholder="1" min="1" value="1" required>
-            </div>
-            <div style="display:flex;align-items:flex-end">
-              <button type="button" class="btn-icon" onclick="addRewardRow()"
-                data-i18n-title="admin_btn_add_more" title="Adicionar mais">＋</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="form-group" style="margin-top:.75rem">
-          <label class="form-label" data-i18n="admin_reward_name_lbl">Nome (Ex: "Adena")</label>
-          <input type="text" name="description[]" id="firstDesc" class="form-control"
-            data-i18n-placeholder="admin_reward_name_ph"
-            placeholder="Nome do item para exibição">
-        </div>
-
-        <button type="submit" class="btn btn-primary btn-full" style="margin-top:1rem" data-i18n="admin_btn_save_rewards">
-          ✓ Salvar Rewards
-        </button>
-      </form>
-    </div>
-
+  <div class="admin-grid admin-activity-grid">
     <!-- ── Rewards List ── -->
-    <div class="card">
+    <div class="card admin-rewards-panel">
       <div class="card-title"><span data-i18n="admin_rewards_list_title">📦 Rewards Configurados</span> (<?= count($rewards) ?>)</div>
 
       <?php if (empty($rewards)): ?>
@@ -546,28 +552,8 @@ renderNav();
       <?php endif; ?>
     </div>
 
-    <div class="card">
-      <div class="card-title">🛡 Anticheat</div>
-      <p style="font-size:.82rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.5" data-i18n="anticheat_desc">
-        Bloqueia a tela de voto quando a conexão parecer VPN, proxy ou rede suspeita.
-      </p>
-      <form method="POST" action="admin.php">
-        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-        <input type="hidden" name="action" value="toggle_anticheat">
-        <input type="hidden" name="anticheat_enabled" value="<?= $anticheatEnabled ? '0' : '1' ?>">
-        <button type="submit" class="btn btn-primary btn-full" data-i18n="<?= $anticheatEnabled ? 'anticheat_disable' : 'anticheat_enable' ?>">
-          <?= $anticheatEnabled ? 'Desativar anticheat' : 'Ativar anticheat' ?>
-        </button>
-      </form>
-      <div style="font-size:.72rem;color:var(--text-dim);margin-top:.6rem">
-        <span data-i18n="anticheat_status">Status atual:</span> <strong data-i18n="<?= $anticheatEnabled ? 'anticheat_active' : 'anticheat_inactive' ?>"><?= $anticheatEnabled ? 'Ativo' : 'Desativado' ?></strong>
-      </div>
-    </div>
-
-  </div><!-- .admin-grid -->
-
   <!-- Vote Log -->
-  <div class="card" style="margin-top:1.5rem">
+<div class="card admin-vote-log">
     <div class="flex-between" style="margin-bottom:1rem">
       <div class="card-title" style="margin:0" data-i18n="admin_log_title">📊 Log de Votos Recentes</div>
       <span style="font-size:.75rem;color:var(--text-dim)" data-i18n="admin_log_subtitle">Últimas 15 sessões</span>
@@ -577,7 +563,7 @@ renderNav();
     <p style="font-size:.85rem;color:var(--text-dim)" data-i18n="admin_no_log">Nenhum voto registrado ainda.</p>
     <?php else: ?>
     <div class="table-wrap">
-      <table>
+      <table class="admin-data-table">
         <thead>
           <tr>
             <th data-i18n="col_login">Login</th>
@@ -590,8 +576,8 @@ renderNav();
         <tbody>
           <?php foreach ($recent_log as $log): ?>
           <tr>
-            <td style="color:var(--gold-light)"><?= e($log['login']) ?></td>
-            <td>
+            <td style="color:var(--gold-light)"><span class="admin-cell-label" data-i18n="col_login">Login</span><?= e($log['login']) ?></td>
+            <td><span class="admin-cell-label" data-i18n="col_tops_voted">Tops votados</span>
               <?php foreach (explode(', ', $log['tops_voted'] ?? '') as $t): ?>
               <span style="display:inline-block;background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.3);
                 border-radius:4px;padding:1px 6px;font-size:.72rem;margin:1px 2px;color:var(--gold-light)"
@@ -601,9 +587,9 @@ renderNav();
               <?php endforeach; ?>
               <span style="font-size:.7rem;color:var(--text-dim);margin-left:2px">(<?= (int)$log['total_tops'] ?>)</span>
             </td>
-            <td><code style="font-size:.75rem;color:var(--text-dim)"><?= e($log['ip']) ?></code></td>
-            <td style="font-size:.78rem;color:var(--text-secondary)"><?= e($log['voted_at']) ?></td>
-            <td>
+            <td><span class="admin-cell-label" data-i18n="col_ip">IP</span><code style="font-size:.75rem;color:var(--text-dim)"><?= e($log['ip']) ?></code></td>
+            <td style="font-size:.78rem;color:var(--text-secondary)"><span class="admin-cell-label" data-i18n="col_datetime">Data/Hora</span><?= e($log['voted_at']) ?></td>
+            <td><span class="admin-cell-label" data-i18n="col_reward">Reward</span>
               <span class="badge <?= $log['rewarded'] ? 'badge-success' : 'badge-gold' ?>"
                 data-i18n="<?= $log['rewarded'] ? 'badge_delivered' : 'badge_pending' ?>">
                 <?= $log['rewarded'] ? 'Entregue' : 'Pendente' ?>
@@ -617,10 +603,29 @@ renderNav();
     <?php endif; ?>
   </div>
 
+  </div>
+
   <div class="card" style="margin-top:1.5rem">
     <div class="flex-between" style="margin-bottom:1rem">
       <div class="card-title" style="margin:0" data-i18n="anticheat_log_title">🛡 Detecções do Anticheat</div>
       <span style="font-size:.75rem;color:var(--text-dim)" data-i18n="anticheat_log_subtitle">Últimos 15 bloqueios</span>
+    </div>
+
+    <div class="anticheat-controls">
+      <p style="font-size:.82rem;color:var(--text-secondary);margin:0;line-height:1.5" data-i18n="anticheat_desc">
+        Bloqueia a tela de voto quando a conexão parecer VPN, proxy ou rede suspeita.
+      </p>
+      <form method="POST" action="admin.php">
+        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+        <input type="hidden" name="action" value="toggle_anticheat">
+        <input type="hidden" name="anticheat_enabled" value="<?= $anticheatEnabled ? '0' : '1' ?>">
+        <button type="submit" class="btn btn-primary btn-full" data-i18n="<?= $anticheatEnabled ? 'anticheat_disable' : 'anticheat_enable' ?>">
+          <?= $anticheatEnabled ? 'Desativar anticheat' : 'Ativar anticheat' ?>
+        </button>
+      </form>
+      <div style="font-size:.72rem;color:var(--text-dim);margin-top:.6rem">
+        <span data-i18n="anticheat_status">Status atual:</span> <strong data-i18n="<?= $anticheatEnabled ? 'anticheat_active' : 'anticheat_inactive' ?>"><?= $anticheatEnabled ? 'Ativo' : 'Desativado' ?></strong>
+      </div>
     </div>
 
     <?php if (empty($recent_anticheat)): ?>
