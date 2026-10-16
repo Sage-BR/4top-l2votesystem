@@ -18,6 +18,7 @@ function getDB() {
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
                 PDO::ATTR_PERSISTENT         => false,
+                PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
             )
         );
         $pdo->exec("SET time_zone = '+00:00'");

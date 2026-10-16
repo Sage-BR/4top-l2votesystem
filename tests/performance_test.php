@@ -25,24 +25,41 @@ class PerfDb {
     public $acquired = 0;
     public $cooldown = false;
     public $failDelivery = false;
-    public function prepare($sql) { return new PerfStatement($this, $sql); }
-    public function query($sql) { return new PerfStatement($this, $sql); }
-    public function beginTransaction() { $this->transaction = true; }
+    public $pending = null;
+    public $existingLog = false;
+    public function assertReady() {
+        if ($this->pending !== null) throw new RuntimeException('2014: unbuffered result still active');
+    }
+    public function prepare($sql) { $this->assertReady(); return new PerfStatement($this, $sql); }
+    public function query($sql) { $stmt = $this->prepare($sql); $stmt->execute(); return $stmt; }
+    public function beginTransaction() { $this->assertReady(); $this->transaction = true; }
     public function inTransaction() { return $this->transaction; }
-    public function commit() { $this->transaction = false; $this->cooldown = true; }
-    public function rollBack() { $this->transaction = false; }
+    public function commit() { $this->assertReady(); $this->transaction = false; $this->cooldown = true; }
+    public function rollBack() { $this->assertReady(); $this->transaction = false; }
 }
 class PerfStatement {
     private $db;
     private $sql;
     public function __construct($db, $sql) { $this->db = $db; $this->sql = $sql; }
     public function execute($params = array()) {
+        $this->db->assertReady();
+        if (stripos(ltrim($this->sql), 'SELECT') === 0) $this->db->pending = spl_object_id($this);
         if (strpos($this->sql, 'GET_LOCK') !== false) $this->db->acquired++;
         if (strpos($this->sql, 'RELEASE_LOCK') !== false) $this->db->released++;
     }
     public function fetchColumn() { return 1; }
-    public function fetch($mode = null) { return strpos($this->sql, 'claimed_at') !== false && $this->db->cooldown ? array('claimed_at' => gmdate('Y-m-d H:i:s')) : false; }
-    public function fetchAll($mode = null) { return strpos($this->sql, '4top_rewards') !== false ? array(array('item_id' => 57, 'quantity' => 1)) : array(); }
+    public function closeCursor() {
+        if ($this->db->pending === spl_object_id($this)) $this->db->pending = null;
+        return true;
+    }
+    public function __destruct() { $this->closeCursor(); }
+    public function fetch($mode = null) {
+        if (strpos($this->sql, 'claimed_at') !== false && $this->db->cooldown) return array('claimed_at' => gmdate('Y-m-d H:i:s'));
+        if (strpos($this->sql, 'SELECT id FROM 4top_log') !== false && $this->db->existingLog) return array('id' => 1);
+        $this->closeCursor();
+        return false;
+    }
+    public function fetchAll($mode = null) { $this->closeCursor(); return strpos($this->sql, '4top_rewards') !== false ? array(array('item_id' => 57, 'quantity' => 1)) : array(); }
 }
 class DirectFixture {
     public function checkVote($ip, $login) { return TopResult::ok(123); }
@@ -71,6 +88,12 @@ perfAssert($repeat['status'] === 'error' && $GLOBALS['fixtureDb']->delivered ===
 $_SESSION['vs_confirmed_votes'] = array(1 => time());
 $repeat = claimReward('fixture', 1);
 perfAssert($repeat['status'] === 'cooldown', 'database cooldown blocks another delivery');
+$GLOBALS['fixtureDb']->cooldown = false;
+$GLOBALS['fixtureDb']->existingLog = true;
+startSession();
+$_SESSION['vs_confirmed_votes'] = array(1 => time(), 2 => time());
+$existing = claimReward('fixture', 1);
+perfAssert($existing['status'] === 'ok' && $GLOBALS['fixtureDb']->pending === null, 'existing vote results close before next query and commit');
 $GLOBALS['fixtureDb']->cooldown = false;
 $GLOBALS['fixtureDb']->failDelivery = true;
 startSession();
