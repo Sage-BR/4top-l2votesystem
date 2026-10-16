@@ -813,20 +813,88 @@ tr:hover td { background: rgba(201, 168, 76, 0.03); }
 ═══════════════════════════════════════════ */
 .admin-grid {
   display: grid;
-  grid-template-columns: minmax(300px, 0.85fr) minmax(440px, 1.15fr);
-  grid-template-areas:
-    "add-top tops-list"
-    "rewards-form rewards-list"
-    "anticheat anticheat";
+  grid-template-columns: minmax(280px, .8fr) minmax(0, 1.6fr);
   align-items: start;
   gap: 1.5rem;
 }
 
-.admin-grid > .card:nth-child(1) { grid-area: add-top; }
-.admin-grid > .card:nth-child(2) { grid-area: tops-list; }
-.admin-grid > .card:nth-child(3) { grid-area: rewards-form; }
-.admin-grid > .card:nth-child(4) { grid-area: rewards-list; }
-.admin-grid > .card:nth-child(5) { grid-area: anticheat; }
+.admin-config-stack { display: grid; gap: 1.5rem; min-width: 0; }
+.admin-activity-grid { margin-top: 1.5rem; }
+.admin-activity-grid > .card { min-width: 0; margin: 0; }
+.admin-vote-log { container: vote-log / inline-size; }
+.admin-vote-log > .flex-between { flex-wrap: wrap; gap: .5rem 1rem; }
+.admin-cell-label { display: none; }
+.admin-data-table,
+.admin-rewards-panel table { table-layout: fixed; width: 100%; }
+.admin-data-table th,
+.admin-data-table td,
+.admin-rewards-panel th,
+.admin-rewards-panel td {
+  padding: .75rem .5rem;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  vertical-align: top;
+}
+.admin-data-table th { letter-spacing: .08em; }
+.admin-data-table th:nth-child(1) { width: 15%; }
+.admin-data-table th:nth-child(2) { width: 28%; }
+.admin-data-table th:nth-child(3) { width: 22%; }
+.admin-data-table th:nth-child(4) { width: 19%; }
+.admin-data-table th:nth-child(5) { width: 16%; }
+.admin-data-table code { white-space: normal; overflow-wrap: anywhere; }
+.admin-data-table .badge { max-width: 100%; box-sizing: border-box; white-space: normal; overflow-wrap: anywhere; }
+@container vote-log (max-width: 600px) {
+  .admin-data-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .admin-data-table,
+  .admin-data-table tbody { display: block; }
+  .admin-data-table tbody { display: grid; gap: .75rem; }
+  .admin-data-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: .75rem 1rem;
+    padding: 1rem;
+    border: 1px solid rgba(201,168,76,.14);
+    border-radius: var(--radius);
+  }
+  .admin-data-table td { display: block; min-width: 0; border: 0; padding: 0; }
+  .admin-data-table td:nth-child(2),
+  .admin-data-table td:nth-child(3) { grid-column: 1 / -1; }
+  .admin-cell-label { display: block; margin-bottom: .3rem; font-size: .65rem; color: var(--text-dim); }
+}
+.anticheat-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .5rem 1.5rem;
+  margin-bottom: 1.25rem;
+  padding: 1rem;
+  border: 1px solid rgba(201,168,76,.18);
+  border-radius: var(--radius);
+  background: rgba(201,168,76,.04);
+}
+.anticheat-controls > form { grid-column: 2; grid-row: 1 / span 2; }
+.anticheat-controls > div { grid-column: 1; }
+@media (max-width: 600px) {
+  .anticheat-controls { grid-template-columns: 1fr; }
+  .anticheat-controls > form { grid-column: 1; grid-row: auto; }
+}
+.admin-config-stack > .card,
+.admin-tops-panel { min-width: 0; margin: 0; }
+.admin-tops-panel .top-admin-list {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .admin-grid { grid-template-columns: 1fr; }
+}
 
 .integration-help {
   display: inline-flex;
@@ -1230,12 +1298,6 @@ body.integration-modal-open { overflow: hidden; }
   .tops-grid { grid-template-columns: 1fr; }
   .admin-grid {
     grid-template-columns: 1fr;
-    grid-template-areas:
-      "add-top"
-      "tops-list"
-      "rewards-form"
-      "rewards-list"
-      "anticheat";
   }
   .project-grid { grid-template-columns: 1fr; }
   .stats-row { grid-template-columns: repeat(2, 1fr); }

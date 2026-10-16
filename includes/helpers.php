@@ -120,6 +120,7 @@ function ensureVoteSchema() {
         if ((string)getSetting('schema_version', '0') === '8') return true;
         $schemaLock = $db->query("SELECT GET_LOCK('vs_schema_migration', 5)");
         $schemaLocked = (int)$schemaLock->fetchColumn() === 1;
+        $schemaLock->closeCursor();
         if (!$schemaLocked) return false;
         if ((string)getSetting('schema_version', '0') === '8') return true;
         $tables = array(
@@ -186,6 +187,7 @@ function ensureVoteSchema() {
             $stmt = $db->prepare("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?");
             $stmt->execute(array($table));
             $exists = (int)$stmt->fetchColumn() > 0;
+            $stmt->closeCursor();
             if (!$exists) {
                 $db->exec($sql);
             }
@@ -193,9 +195,13 @@ function ensureVoteSchema() {
 
         // Não reinterpreta GoodsID antigos como ItemType: categoria vazia exige recadastro.
         $rewardClass = $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '4top_rewards' AND COLUMN_NAME = 'item_class'");
-        if ((int)$rewardClass->fetchColumn() === 0) $db->exec("ALTER TABLE 4top_rewards ADD item_class VARCHAR(40) NOT NULL DEFAULT ''");
+        $hasRewardClass = (int)$rewardClass->fetchColumn() > 0;
+        $rewardClass->closeCursor();
+        if (!$hasRewardClass) $db->exec("ALTER TABLE 4top_rewards ADD item_class VARCHAR(40) NOT NULL DEFAULT ''");
         $postbackColumn = $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '4top_postback_refs' AND COLUMN_NAME = 'postback_at'");
-        if ((int)$postbackColumn->fetchColumn() === 0) {
+        $hasPostbackColumn = (int)$postbackColumn->fetchColumn() > 0;
+        $postbackColumn->closeCursor();
+        if (!$hasPostbackColumn) {
             $db->exec('ALTER TABLE 4top_postback_refs ADD COLUMN postback_at DATETIME DEFAULT NULL');
         }
 
@@ -205,7 +211,9 @@ function ensureVoteSchema() {
              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '4top_reward_claims' AND COLUMN_NAME = 'hwid'"
         );
         $chk->execute();
-        if ((int)$chk->fetchColumn() === 0) {
+        $hasHwidColumn = (int)$chk->fetchColumn() > 0;
+        $chk->closeCursor();
+        if (!$hasHwidColumn) {
             $db->exec("ALTER TABLE `4top_reward_claims` ADD COLUMN `hwid` VARCHAR(128) DEFAULT NULL, ADD INDEX `idx_hwid` (`hwid`)");
         }
 
@@ -218,7 +226,9 @@ function ensureVoteSchema() {
         $removedTop->execute(array('ragezone.php'));
 
         $stmt->execute(array('anticheat_enabled'));
-        if ($stmt->fetchColumn() === false) {
+        $anticheatSetting = $stmt->fetchColumn();
+        $stmt->closeCursor();
+        if ($anticheatSetting === false) {
             setSetting('anticheat_enabled', '1');
         }
         $indexes = array(
@@ -242,7 +252,10 @@ function ensureVoteSchema() {
         error_log('[VoteSystem] ensureVoteSchema error: ' . $e->getMessage());
         return false;
     } finally {
-        if ($schemaLocked) $db->query("SELECT RELEASE_LOCK('vs_schema_migration')");
+        if ($schemaLocked) {
+            $schemaUnlock = $db->query("SELECT RELEASE_LOCK('vs_schema_migration')");
+            $schemaUnlock->closeCursor();
+        }
     }
 }
 
@@ -644,7 +657,9 @@ function claimReward($login, $objId, $hwid = null) {
              ORDER BY claimed_at DESC LIMIT 1 FOR UPDATE"
         );
         $chk->execute(array($login, $hwid ?: null));
-        if ($chk->fetch()) {
+        $previousClaim = $chk->fetch();
+        $chk->closeCursor();
+        if ($previousClaim) {
             $db->rollBack();
             return array('status' => 'cooldown', 'msg_key' => 'msg_cooldown', 'msg' => '⏳ Você já coletou sua recompensa nas últimas 12 horas.');
         }
@@ -661,7 +676,9 @@ function claimReward($login, $objId, $hwid = null) {
         );
         foreach ($confirmed as $top_id => $voteTime) {
             $chkLog->execute(array($login, (int)$top_id));
-            if (!$chkLog->fetch()) {
+            $existingLog = $chkLog->fetch();
+            $chkLog->closeCursor();
+            if (!$existingLog) {
                 $voteTs = (int)$voteTime > 0 ? (int)$voteTime : time();
                 $stmtLog->execute(array($login, $ip ?: 'N/A', (int)$top_id, $voteTs));
             }

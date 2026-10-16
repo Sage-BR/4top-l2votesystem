@@ -29,7 +29,9 @@ function gameGetAccount($login) {
     gamePasswordMode();
     $stmt = getDB()->prepare('SELECT PlayerID AS login, Password AS password, Access AS account_access FROM Player WHERE PlayerID = ? LIMIT 1');
     $stmt->execute(array($login));
-    return $stmt->fetch(PDO::FETCH_ASSOC) ?: false;
+    $account = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt->closeCursor();
+    return $account ?: false;
 }
 function gameLogin($login, $password) {
     $account = gameGetAccount($login);
@@ -50,6 +52,7 @@ function gameGetChars($login) {
     // Slayer é o cadastro principal; Race aponta para os dados da raça atual.
     $stmt = getDB()->prepare("SELECT Name, Race FROM Slayer WHERE PlayerID = ? AND Active = 'ACTIVE' ORDER BY Slot, Name");
     $stmt->execute(array($login)); $rows = $stmt->fetchAll(PDO::FETCH_ASSOC); $chars = array();
+    $stmt->closeCursor();
     $races = array('SLAYER' => 'Slayer', 'VAMPIRE' => 'Vampire', 'OUSTERS' => 'Ousters');
     foreach ($rows as $row) {
         $race = $races[$row['Race']] ?? null;
@@ -64,7 +67,9 @@ function gameCharBelongsTo($login, $token) {
     if (!$char) return false;
     $stmt = getDB()->prepare("SELECT c.Name FROM `{$char['race']}` c JOIN Slayer s ON s.Name = c.Name AND s.PlayerID = c.PlayerID WHERE c.PlayerID = ? AND c.Name = ? AND c.Active = 'ACTIVE' AND s.Active = 'ACTIVE' AND s.Race = ? LIMIT 1");
     $stmt->execute(array($login, $char['name'], strtoupper($char['race'])));
-    return (bool)$stmt->fetch();
+    $belongs = (bool)$stmt->fetch();
+    $stmt->closeCursor();
+    return $belongs;
 }
 require_once __DIR__ . '/inventory.php';
 function _ipValid($ip) {
